@@ -1,0 +1,86 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+    --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
+    --cyan: #00e5ff;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    overflow: hidden;
+    background: #000;
+    font-family: var(--font-mono);
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+    width: 4px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 2px;
+}
+
+/* Glass morphism utility */
+.bg-glass {
+    background: rgba(8, 12, 22, 0.72);
+}
+
+/* Leaflet overrides for dark theme */
+.leaflet-container {
+    background: #000 !important;
+    font-family: var(--font-mono) !important;
+}
+
+.leaflet-control-attribution {
+    display: none !important;
+}
+
+.leaflet-popup-content-wrapper {
+    background: rgba(8, 12, 22, 0.9) !important;
+    color: #fff !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 12px !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    backdrop-filter: blur(12px) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+    font-family: var(--font-mono) !important;
+    font-size: 11px !important;
+}
+
+.leaflet-popup-tip {
+    background: rgba(8, 12, 22, 0.9) !important;
+}
+
+.leaflet-popup-close-button {
+    color: rgba(255, 255, 255, 0.5) !important;
+}
+
+/* Pulse animation */
+@keyframes pulse-cyan {
+
+    0%,
+    100% {
+        box-shadow: 0 0 4px var(--cyan);
+    }
+
+    50% {
+        box-shadow: 0 0 16px var(--cyan);
+    }
+}
+
+.pulse-cyan {
+    animation: pulse-cyan 2s ease-in-out infinite;
+}

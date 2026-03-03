@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GeoMonitor — Hava & Çevre İzleme Paneli</title>
+
+    <!-- MapLibre GL JS -->
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+    <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+
+    <!-- SunCalc — Solar/Lunar calculations -->
+    <script src="https://cdn.jsdelivr.net/npm/suncalc@1.9.0/suncalc.js"></script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@0.344.0/dist/umd/lucide.js"></script>
+
+    <!-- Inter Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <!-- =============================================
+         MAP CONTAINER (full-screen)
+         ============================================= -->
+    <div id="map"></div>
+
+    <!-- =============================================
+         LOADING OVERLAY
+         ============================================= -->
+    <div id="loading-overlay">
+        <div class="loader-content">
+            <div class="loader-spinner">
+                <div class="spinner-ring"></div>
+                <div class="spinner-ring inner"></div>
+                <i data-lucide="globe-2" class="spinner-icon"></i>
+            </div>
+            <h2 class="loader-title">GeoMonitor</h2>
+            <p class="loader-subtitle">Harita katmanları yükleniyor...</p>
+        </div>
+    </div>
+
+    <!-- =============================================
+         MOBILE SIDEBAR TOGGLE
+         ============================================= -->
+    <button id="sidebar-toggle" class="floating-btn" title="Menü">
+        <i data-lucide="panel-left" class="icon"></i>
+    </button>
+
+    <!-- =============================================
+         CONTROL PANEL (Left Sidebar)
+         ============================================= -->
+    <aside id="control-panel" class="glass-panel sidebar open">
+        <!-- Header -->
+        <div class="panel-header">
+            <div class="logo">
+                <i data-lucide="radar" class="icon accent"></i>
+                <div>
+                    <h1 class="logo-title">GeoMonitor</h1>
+                    <span class="logo-subtitle">Hava &amp; Çevre İzleme</span>
+                </div>
+            </div>
+            <button id="sidebar-close" class="icon-btn" title="Kapat">
+                <i data-lucide="x" class="icon"></i>
+            </button>
+        </div>
+
+        <div class="panel-body">
+            <!-- Search Section -->
+            <div class="panel-section">
+                <div class="search-wrapper">
+                    <i data-lucide="search" class="search-icon"></i>
+                    <input type="text" id="search-input" placeholder="Şehir veya konum ara..." autocomplete="off"
+                        spellcheck="false">
+                    <kbd class="search-kbd">↵</kbd>
+                </div>
+                <div id="search-results" class="search-dropdown glass-panel"></div>
+            </div>
+
+            <!-- Layer Toggles -->
+            <div class="panel-section">
+                <h3 class="section-title">
+                    <i data-lucide="layers" class="icon-sm"></i>
+                    Katmanlar
+                </h3>
+                <div class="layer-toggles">
+                    <label class="toggle-item">
+                        <input type="checkbox" id="layer-daynight" checked>
+                        <span class="toggle-switch"></span>
+                        <span class="toggle-label">
+                            <i data-lucide="sun-moon" class="icon-xs"></i>
+                            Gündüz / Gece Sınırı
+                        </span>
+                    </label>
+                    <label class="toggle-item">
+                        <input type="checkbox" id="layer-weather">
+                        <span class="toggle-switch"></span>
+                        <span class="toggle-label">
+                            <i data-lucide="cloud-rain" class="icon-xs"></i>
+                            Yağış Katmanı (NASA)
+                        </span>
+                    </label>
+                    <label class="toggle-item">
+                        <input type="checkbox" id="layer-clouds">
+                        <span class="toggle-switch"></span>
+                        <span class="toggle-label">
+                            <i data-lucide="cloud" class="icon-xs"></i>
+                            Bulut Örtüsü (Uydu)
+                        </span>
+                    </label>
+                    <label class="toggle-item">
+                        <input type="checkbox" id="layer-aircraft">
+                        <span class="toggle-switch"></span>
+                        <span class="toggle-label">
+                            <i data-lucide="plane" class="icon-xs"></i>
+                            Uçak Trafiği (OpenSky)
+                        </span>
+                    </label>
+                    <label class="toggle-item">
+                        <input type="checkbox" id="layer-ndvi">
+                        <span class="toggle-switch"></span>
+                        <span class="toggle-label">
+                            <i data-lucide="trees" class="icon-xs"></i>
+                            Bitki Örtüsü (NDVI)
+                        </span>
+                    </label>
+                    <label class="toggle-item">
+                        <input type="checkbox" id="layer-airquality">
+                        <span class="toggle-switch"></span>
+                        <span class="toggle-label">
+                            <i data-lucide="wind" class="icon-xs"></i>
+                            Hava Kalitesi (OpenAQ)
+                        </span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Base Map Switcher -->
+            <div class="panel-section">
+                <h3 class="section-title">
+                    <i data-lucide="map" class="icon-sm"></i>
+                    Temel Harita
+                </h3>
+                <div class="basemap-grid">
+                    <button class="basemap-btn active" data-basemap="dark">
+                        <i data-lucide="moon" class="icon-sm"></i>
+                        <span>Koyu</span>
+                    </button>
+                    <button class="basemap-btn" data-basemap="satellite">
+                        <i data-lucide="satellite" class="icon-sm"></i>
+                        <span>Uydu</span>
+                    </button>
+                    <button class="basemap-btn" data-basemap="streets">
+                        <i data-lucide="map-pin" class="icon-sm"></i>
+                        <span>Sokak</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 3D Terrain -->
+            <div class="panel-section">
+                <h3 class="section-title">
+                    <i data-lucide="mountain" class="icon-sm"></i>
+                    3D Arazi
+                </h3>
+                <label class="toggle-item">
+                    <input type="checkbox" id="terrain-toggle">
+                    <span class="toggle-switch"></span>
+                    <span class="toggle-label">3D Yükseklik Haritası</span>
+                </label>
+                <div class="range-wrapper" id="terrain-range-wrapper">
+                    <div class="range-header">
+                        <span class="range-label">Abartma Oranı</span>
+                        <span class="range-value" id="terrain-value">1.5x</span>
+                    </div>
+                    <input type="range" class="range-input" id="terrain-exaggeration" min="0.5" max="4" step="0.1"
+                        value="1.5" aria-label="Arazi Abartma Oranı">
+                </div>
+            </div>
+
+            <!-- Export -->
+            <div class="panel-section">
+                <h3 class="section-title">
+                    <i data-lucide="download" class="icon-sm"></i>
+                    Dışa Aktar
+                </h3>
+                <div class="export-grid">
+                    <button id="export-png" class="export-btn">
+                        <i data-lucide="image" class="icon-xs"></i>
+                        Harita (PNG)
+                    </button>
+                    <button id="export-csv" class="export-btn">
+                        <i data-lucide="file-spreadsheet" class="icon-xs"></i>
+                        Veri (CSV)
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="panel-footer">
+            <div class="status-row">
+                <span class="status-indicator">
+                    <span class="status-dot pulse"></span>
+                    Canlı Veri
+                </span>
+                <span id="last-update" class="last-update">—</span>
+            </div>
+            <div class="data-sources">
+                Open-Meteo · OpenSky · NASA GIBS · OpenAQ · SunCalc
+            </div>
+        </div>
+    </aside>
+
+    <!-- =============================================
+         INFO PANEL (Right — appears on map click)
+         ============================================= -->
+    <aside id="info-panel" class="glass-panel info-sidebar">
+        <div class="panel-header">
+            <h2 class="info-title">
+                <i data-lucide="map-pin" class="icon accent"></i>
+                <span id="info-location">Konum Bilgisi</span>
+            </h2>
+            <button id="info-close" class="icon-btn" title="Kapat">
+                <i data-lucide="x" class="icon"></i>
+            </button>
+        </div>
+
+        <div id="info-content" class="info-content">
+            <div class="info-placeholder">
+                <i data-lucide="mouse-pointer-click" class="icon-xl"></i>
+                <p>Haritaya tıklayarak<br>konum bilgisi alın</p>
+            </div>
+        </div>
+    </aside>
+
+    <!-- =============================================
+         COORDINATES BAR (Bottom Center)
+         ============================================= -->
+    <div id="coords-bar" class="coords-bar glass-sm">
+        <span id="cursor-coords">0.0000°N, 0.0000°E</span>
+        <span class="separator">|</span>
+        <span id="zoom-level">Yakınlık: 3</span>
+        <span class="separator">|</span>
+        <span id="bearing-display">Yön: 0°</span>
+    </div>
+
+    <!-- =============================================
+         NOTIFICATION TOAST
+         ============================================= -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- =============================================
+         APP ENGINE (ES6 Modules)
+         ============================================= -->
+    <script type="module" src="app.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,2951 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ISS Orbital Tracker 3D</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+
+    <style>
+        /* =============================================
+           CSS DESIGN SYSTEM — Variables & Tokens
+           ============================================= */
+        :root {
+            --glass-bg: rgba(8, 12, 22, 0.72);
+            --glass-bg-heavy: rgba(6, 9, 18, 0.88);
+            --glass-border: rgba(255, 255, 255, 0.06);
+            --glass-border-hover: rgba(0, 229, 255, 0.25);
+            --glass-blur: 20px;
+            --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.65);
+            --glass-shadow-elevated: 0 12px 48px rgba(0, 0, 0, 0.8);
+
+            --text-primary: rgba(255, 255, 255, 0.95);
+            --text-secondary: rgba(255, 255, 255, 0.55);
+            --text-muted: rgba(255, 255, 255, 0.30);
+            --text-accent: #00e5ff;
+            --text-accent-dim: rgba(0, 229, 255, 0.6);
+
+            --accent-cyan: #00e5ff;
+            --accent-purple: #a855f7;
+            --accent-green: #22c55e;
+            --accent-yellow: #eab308;
+            --accent-red: #ef4444;
+            --accent-blue: #3b82f6;
+
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+
+            --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', 'Courier New', monospace;
+            --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+            --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #000;
+            font-family: var(--font-sans);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        #canvas-container {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+        }
+
+        /* =============================================
+           GLASS PANEL SYSTEM — Elevation Layers
+           ============================================= */
+        .glass {
+            background: var(--glass-bg);
+            -webkit-backdrop-filter: blur(var(--glass-blur));
+            backdrop-filter: blur(var(--glass-blur));
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-md);
+            box-shadow: var(--glass-shadow);
+            transition: border-color var(--transition-base),
+                box-shadow var(--transition-base),
+                background var(--transition-base);
+        }
+
+        .glass-elevated {
+            background: var(--glass-bg-heavy);
+            -webkit-backdrop-filter: blur(28px);
+            backdrop-filter: blur(28px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: var(--radius-md);
+            box-shadow: var(--glass-shadow-elevated);
+        }
+
+        .glass:hover {
+            border-color: rgba(255, 255, 255, 0.10);
+        }
+
+        /* =============================================
+           HUD TYPOGRAPHY
+           ============================================= */
+        .hud-text {
+            font-family: var(--font-mono);
+            font-weight: 400;
+            letter-spacing: 0.02em;
+        }
+
+        .hud-label {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            font-weight: 500;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+        }
+
+        .hud-value {
+            font-family: var(--font-mono);
+            font-weight: 400;
+            text-shadow: 0 0 12px currentColor;
+        }
+
+        /* =============================================
+           PANEL ANIMATION
+           ============================================= */
+        .panel-transition {
+            transition: max-height 0.35s ease-in-out,
+                opacity 0.35s ease-in-out,
+                margin 0.35s ease-in-out;
+            overflow: hidden;
+        }
+
+        /* =============================================
+           LOADING OVERLAY
+           ============================================= */
+        #loader {
+            transition: opacity 0.6s ease;
+        }
+
+        #main-ui {
+            transition: opacity var(--transition-slow);
+        }
+
+        /* Disable all pointer interactions when UI is hidden */
+        #main-ui.ui-hidden * {
+            pointer-events: none !important;
+        }
+
+        /* =============================================
+           COMPACT MODULES BAR (bottom center)
+           ============================================= */
+        #modules-bar {
+            position: fixed;
+            bottom: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(6, 10, 20, 0.82);
+            -webkit-backdrop-filter: blur(20px);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            border-radius: 40px;
+            padding: 5px 8px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+            pointer-events: auto;
+            transition: opacity var(--transition-slow);
+        }
+
+        .mod-btn {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 12px;
+            border-radius: 32px;
+            border: none;
+            background: transparent;
+            color: rgba(255, 255, 255, 0.35);
+            font-family: var(--font-mono);
+            font-size: 10px;
+            letter-spacing: 0.06em;
+            cursor: pointer;
+            transition: all 200ms ease;
+            white-space: nowrap;
+        }
+
+        .mod-btn:hover {
+            background: rgba(255, 255, 255, 0.06);
+            color: rgba(255, 255, 255, 0.75);
+        }
+
+        .mod-btn.mod-active {
+            background: rgba(34, 197, 94, 0.15);
+            color: #22c55e;
+            border: 1px solid rgba(34, 197, 94, 0.25);
+        }
+
+        .mod-btn .mod-dot {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: currentColor;
+            opacity: 0.5;
+            flex-shrink: 0;
+        }
+
+        .mod-btn.mod-active .mod-dot {
+            opacity: 1;
+            box-shadow: 0 0 6px currentColor;
+        }
+
+        .mod-divider {
+            width: 1px;
+            height: 16px;
+            background: rgba(255, 255, 255, 0.06);
+            flex-shrink: 0;
+        }
+
+        /* =============================================
+           STATUS INDICATORS
+           ============================================= */
+        .status-live {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-live::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--accent-green);
+            animation: pulse-ring 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-ring {
+
+            0%,
+            100% {
+                box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4);
+            }
+
+            50% {
+                box-shadow: 0 0 0 6px rgba(34, 197, 94, 0);
+            }
+        }
+
+        /* Marker ring animation - replaces green blob */
+        @keyframes marker-pulse {
+
+            0%,
+            100% {
+                transform: scale(1);
+                opacity: 0.9;
+            }
+
+            50% {
+                transform: scale(1.2);
+                opacity: 0.5;
+            }
+        }
+
+        @keyframes marker-ring-expand {
+            0% {
+                transform: scale(0.5);
+                opacity: 0.8;
+            }
+
+            100% {
+                transform: scale(2.5);
+                opacity: 0;
+            }
+        }
+
+        /* =============================================
+           LAYER BUTTONS
+           ============================================= */
+        .layer-btn {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .layer-btn::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, transparent, rgba(0, 229, 255, 0.06), transparent);
+            transform: translateX(-100%);
+            transition: transform 0.4s ease;
+        }
+
+        .layer-btn:hover::after {
+            transform: translateX(0);
+        }
+
+        /* =============================================
+           LIGHTNING STATUS BAR
+           ============================================= */
+        #lightning-status {
+            position: fixed;
+            top: 64px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 20;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity var(--transition-slow);
+        }
+
+        #lightning-status.visible {
+            opacity: 1;
+        }
+
+        /* =============================================
+           TEMPERATURE SCALE LEGEND
+           ============================================= */
+        #temp-scale {
+            position: fixed;
+            bottom: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 20;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity var(--transition-slow);
+        }
+
+        #temp-scale.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* =============================================
+           NASA CAM RESIZABLE
+           ============================================= */
+        #nasa-cam-panel {
+            resize: both;
+            overflow: hidden;
+            min-width: 200px;
+            min-height: 80px;
+            max-width: 640px;
+            max-height: 400px;
+        }
+
+        /* =============================================
+           TELESCOPE INDICATOR
+           ============================================= */
+        #telescope-indicator {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 15;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        #telescope-indicator.visible {
+            opacity: 1;
+        }
+
+        /* =============================================
+           DATA SOURCES PANEL
+           ============================================= */
+        .data-source-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 5px 0;
+        }
+
+        .data-source-item .ds-icon {
+            flex-shrink: 0;
+            width: 18px;
+            text-align: center;
+            font-size: 13px;
+            margin-top: 1px;
+        }
+
+        .data-source-item a {
+            color: var(--accent-cyan);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color var(--transition-fast);
+        }
+
+        .data-source-item a:hover {
+            color: #fff;
+            text-decoration: underline;
+        }
+
+        /* =============================================
+           MISC ANIMATIONS
+           ============================================= */
+        @keyframes spin-slow {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .animate-spin-slow {
+            animation: spin-slow 3s linear infinite;
+        }
+
+        /* Canvas cursor */
+        #canvas-container {
+            cursor: grab;
+        }
+
+        #canvas-container:active {
+            cursor: grabbing;
+        }
+
+        /* City search input */
+        #city-search-input {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            color: rgba(255, 255, 255, 0.85);
+            font-family: var(--font-mono);
+            font-size: 10px;
+            padding: 5px 8px;
+            outline: none;
+            transition: border-color var(--transition-fast);
+            width: 100%;
+        }
+
+        #city-search-input::placeholder {
+            color: rgba(255, 255, 255, 0.25);
+        }
+
+        #city-search-input:focus {
+            border-color: rgba(0, 229, 255, 0.35);
+        }
+
+        /* Day/Night Tracker Widget */
+        #daynight-widget {
+            position: fixed;
+            top: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 20;
+            pointer-events: none;
+            transition: opacity var(--transition-slow);
+            max-width: calc(100% - 180px);
+        }
+
+        #daynight-widget .glass {
+            max-width: 100%;
+            white-space: nowrap;
+        }
+
+        /* UI toggle + Fullscreen buttons — fixed top-right, horizontal stack */
+        #ui-controls {
+            position: fixed;
+            top: 12px;
+            right: 12px;
+            z-index: 100;
+            display: flex;
+            gap: 12px;
+            pointer-events: auto;
+            align-items: center;
+        }
+
+        #ui-toggle-btn,
+        #fullscreen-btn {
+            pointer-events: auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 40px;
+            min-height: 40px;
+            border-radius: 50%;
+            transition: all 150ms ease;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            background: rgba(6, 10, 20, 0.72);
+            color: rgba(255, 255, 255, 0.3);
+            cursor: pointer;
+        }
+
+        #ui-toggle-btn:hover,
+        #fullscreen-btn:hover {
+            background: rgba(255, 255, 255, 0.08) !important;
+            color: rgba(255, 255, 255, 0.9);
+            transform: scale(1.05);
+        }
+
+        /* Fullscreen button active state */
+        #fullscreen-btn.text-cyan-400 {
+            color: #00e5ff;
+            border-color: rgba(0, 229, 255, 0.2);
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        /* =============================================
+           LAYER FLYOUT (above modules bar)
+           ============================================= */
+        #layer-flyout {
+            position: fixed;
+            bottom: 58px;
+            left: 50%;
+            transform: translateX(-50%) translateY(10px);
+            z-index: 21;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease, transform 0.25s ease;
+        }
+
+        #layer-flyout.visible {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .flyout-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 4px;
+        }
+
+        .flyout-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+            padding: 8px 12px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            background: rgba(255, 255, 255, 0.03);
+            color: rgba(255, 255, 255, 0.4);
+            font-family: var(--font-mono);
+            font-size: 9px;
+            letter-spacing: 0.06em;
+            cursor: pointer;
+            transition: all 200ms ease;
+            min-width: 80px;
+        }
+
+        .flyout-btn:hover {
+            background: rgba(255, 255, 255, 0.07);
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .flyout-btn.flyout-active {
+            background: rgba(0, 229, 255, 0.1);
+            color: #00e5ff;
+            border-color: rgba(0, 229, 255, 0.2);
+        }
+
+        .flyout-btn .flyout-icon {
+            font-size: 16px;
+            line-height: 1;
+        }
+
+        /* =============================================
+           SEARCH SUGGESTIONS DROPDOWN
+           ============================================= */
+        #search-suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            z-index: 30;
+            margin-top: 4px;
+            border-radius: 8px;
+            overflow: hidden;
+            max-height: 0;
+            opacity: 0;
+            transition: max-height 0.2s ease, opacity 0.2s ease;
+        }
+
+        #search-suggestions.visible {
+            max-height: 200px;
+            opacity: 1;
+        }
+
+        .search-item {
+            padding: 6px 10px;
+            font-family: var(--font-mono);
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.6);
+            cursor: pointer;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            transition: background 0.15s ease;
+        }
+
+        .search-item:hover {
+            background: rgba(0, 229, 255, 0.08);
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .search-item:last-child {
+            border-bottom: none;
+        }
+
+        .search-item .search-country {
+            color: rgba(255, 255, 255, 0.3);
+            font-size: 9px;
+            margin-left: 6px;
+        }
+
+        /* =============================================
+           EARTHQUAKE & AURORA STATUS BARS
+           ============================================= */
+        #earthquake-status,
+        #aurora-status {
+            position: fixed;
+            top: 64px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 20;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity var(--transition-slow);
+        }
+
+        #earthquake-status.visible,
+        #aurora-status.visible {
+            opacity: 1;
+        }
+
+        #aurora-status {
+            top: 100px;
+        }
+
+        /* =============================================
+           WEBHINT COMPLIANCE — no-inline-styles
+           ============================================= */
+        h3.hud-label,
+        h4.hud-label {
+            margin: 0;
+        }
+
+        .hud-label-tight {
+            letter-spacing: 0.12em;
+        }
+
+        .hud-emerald {
+            color: rgba(52, 211, 153, 0.7);
+        }
+
+        .hud-blue {
+            color: rgba(96, 165, 250, 0.7);
+        }
+
+        .panel-mw-sm {
+            max-width: 280px;
+        }
+
+        .panel-mw-md {
+            max-width: 300px;
+        }
+
+        .panel-header-min {
+            min-width: 220px;
+        }
+
+        .search-container {
+            position: relative;
+        }
+
+        #nasa-cam-panel {
+            height: 150px;
+        }
+
+        .temp-gradient-bar {
+            width: 280px;
+            height: 12px;
+            border-radius: 6px;
+            background: linear-gradient(90deg, #0d1b6e 0%, #1e3a8a 10%, #2563eb 20%, #38bdf8 30%, #67e8f9 38%, #a7f3d0 46%, #fde68a 54%, #fbbf24 62%, #f97316 72%, #ef4444 82%, #b91c1c 92%, #7f1d1d 100%);
+            box-shadow: 0 0 12px rgba(0, 0, 0, 0.5);
+        }
+    </style>
+</head>
+
+<body class="text-white antialiased">
+
+    <!-- 3D Canvas -->
+    <div id="canvas-container"></div>
+
+    <!-- Loading Screen -->
+    <div id="loader" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black">
+        <div class="relative w-16 h-16 mb-6">
+            <div class="absolute inset-0 border-2 border-cyan-500/20 rounded-full"></div>
+            <div class="absolute inset-0 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
+            <div class="absolute inset-2 border border-cyan-400/30 border-b-transparent rounded-full animate-spin-slow">
+            </div>
+            <div class="absolute inset-0 flex items-center justify-center">
+                <div class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></div>
+            </div>
+        </div>
+        <h2 class="text-cyan-400 tracking-[0.35em] font-mono text-[11px] font-medium">UYDU BAĞLANTISI</h2>
+        <p class="text-white/20 font-mono text-[9px] mt-1 tracking-widest">ISS TLE VERİSİ ALINIYOR</p>
+    </div>
+
+    <!-- Layer Loading Warning -->
+    <div id="layer-loader"
+        class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-40 hidden flex-col items-center">
+        <div class="w-8 h-8 border-[3px] border-yellow-400 border-t-transparent rounded-full animate-spin"></div>
+        <span
+            class="text-yellow-400 mt-3 font-mono text-[10px] tracking-widest bg-black/60 px-3 py-1.5 rounded-md backdrop-blur-sm">KATMAN
+            İNDİRİLİYOR...</span>
+    </div>
+
+    <!-- ============================================= -->
+    <!-- COMPACT MODULES BAR (bottom center)          -->
+    <!-- ============================================= -->
+    <div id="modules-bar">
+        <button class="mod-btn" id="modbar-weather" onclick="toggleModule('weather')"
+            title="Hava Durumu / Rüzgar Parçacıkları">
+            <span class="mod-dot"></span>🌦 Hava
+        </button>
+        <div class="mod-divider"></div>
+        <button class="mod-btn" id="modbar-telescope" onclick="toggleModule('telescope')" title="Teleskop Modu">
+            <span class="mod-dot"></span>🔭 Teleskop
+        </button>
+        <div class="mod-divider"></div>
+        <button class="mod-btn" id="modbar-lightning" onclick="toggleModule('lightning')" title="Yıldırım Simülasyonu">
+            <span class="mod-dot"></span>⚡ Yıldırım
+        </button>
+        <div class="mod-divider"></div>
+        <button class="mod-btn" id="modbar-storm" onclick="toggleModule('storm')" title="Fırtına Takipçisi">
+            <span class="mod-dot"></span>🌀 Fırtına
+        </button>
+        <div class="mod-divider"></div>
+        <button class="mod-btn" id="modbar-earthquake" onclick="toggleModule('earthquake')" title="Deprem Verileri">
+            <span class="mod-dot"></span>🌋 Deprem
+        </button>
+        <div class="mod-divider"></div>
+        <button class="mod-btn" id="modbar-aurora" onclick="toggleModule('aurora')" title="Aurora Tahmini">
+            <span class="mod-dot"></span>🌌 Aurora
+        </button>
+        <div class="mod-divider"></div>
+        <button class="mod-btn" id="modbar-layers" onclick="toggleLayerFlyout()" title="Katmanlar">
+            <span class="mod-dot"></span>🗺️ Katmanlar
+        </button>
+    </div>
+
+    <!-- Layer Flyout -->
+    <div id="layer-flyout">
+        <div class="glass-elevated p-3">
+            <div class="flyout-grid">
+                <button class="flyout-btn flyout-active" onclick="changeLayer('default', this)">
+                    <span class="flyout-icon">🌍</span>Atmosfer
+                </button>
+                <button class="flyout-btn" onclick="changeLayer('temperature', this)">
+                    <span class="flyout-icon">🔥</span>Sıcaklık
+                </button>
+                <button class="flyout-btn" onclick="changeLayer('precipitation', this)">
+                    <span class="flyout-icon">🌧️</span>Yağış
+                </button>
+                <button class="flyout-btn" onclick="changeLayer('radar', this)">
+                    <span class="flyout-icon">📡</span>Radar
+                </button>
+                <button class="flyout-btn" onclick="toggleBordersLayer(this)">
+                    <span class="flyout-icon">🗾</span>Sınırlar
+                </button>
+                <button class="flyout-btn" onclick="changeLayer('clouds_sat', this)">
+                    <span class="flyout-icon">☁️</span>Uydu Bulut
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Earthquake Status -->
+    <div id="earthquake-status">
+        <div class="glass px-4 py-2 flex items-center gap-3">
+            <div class="flex items-center gap-1.5">
+                <span class="text-red-400 text-sm">🌋</span>
+                <span class="text-[10px] font-mono text-red-300 tracking-wider">DEPREM VERİLERİ (24 SAAT)</span>
+            </div>
+            <div class="flex items-center gap-1">
+                <div class="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse"></div>
+                <span id="earthquake-count" class="text-[10px] font-mono text-red-400/60">0 deprem</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Aurora Status -->
+    <div id="aurora-status">
+        <div class="glass px-4 py-2 flex items-center gap-3">
+            <div class="flex items-center gap-1.5">
+                <span class="text-green-400 text-sm">🌌</span>
+                <span class="text-[10px] font-mono text-green-300 tracking-wider">AURORA TAHMİNİ</span>
+            </div>
+            <div class="flex items-center gap-1">
+                <div class="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></div>
+                <span id="aurora-level" class="text-[10px] font-mono text-green-400/60">Yükleniyor...</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Telescope Mode Indicator -->
+    <div id="telescope-indicator">
+        <div class="glass px-4 py-2 flex items-center gap-2">
+            <span class="text-purple-400 text-lg">🔭</span>
+            <div>
+                <p class="text-[10px] font-mono text-purple-300 tracking-wider">TELESKOP MODU</p>
+                <p class="text-[9px] text-white/25 font-mono">Scroll ile uzay boşluğuna yakınlaş</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Day/Night Tracker Widget -->
+    <div id="daynight-widget">
+        <div class="glass px-4 py-2 flex items-center gap-3">
+            <span id="dn-icon" class="text-xl select-none">☀️</span>
+            <div>
+                <div class="flex items-center gap-2">
+                    <span id="dn-label"
+                        class="text-[11px] font-mono font-medium tracking-wider text-yellow-300">---</span>
+                    <span class="text-white/20 text-[10px]">·</span>
+                    <span id="dn-utc" class="text-[10px] font-mono text-white/40">--:--:-- UTC</span>
+                </div>
+                <div class="flex items-center gap-2 mt-0.5">
+                    <span class="text-[9px] font-mono text-white/25">SOLAR PNT</span>
+                    <span id="dn-sub" class="text-[9px] font-mono text-white/50">--</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lightning Activity Status -->
+    <div id="lightning-status">
+        <div class="glass px-4 py-2 flex items-center gap-3">
+            <div class="flex items-center gap-1.5">
+                <span class="text-yellow-400 text-sm">⚡</span>
+                <span class="text-[10px] font-mono text-yellow-300 tracking-wider">YILDIRIM SİMÜLASYONU</span>
+            </div>
+            <div class="flex items-center gap-1">
+                <div class="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse"></div>
+                <span id="lightning-count" class="text-[10px] font-mono text-yellow-400/60">~0 çarpma/dk</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================= -->
+    <!-- GLOBAL UI CONTAINER                           -->
+    <!-- ============================================= -->
+    <div id="main-ui" class="absolute inset-0 pointer-events-none z-10 flex flex-col p-4 sm:p-6 justify-between">
+
+        <!-- ─── TOP BAR ─── -->
+        <header class="flex justify-between items-start gap-4">
+
+            <!-- Left: Title + Modules btn -->
+            <div class="glass p-4 sm:p-5 pointer-events-auto panel-header-min">
+                <div class="flex items-center gap-3 mb-2">
+                    <div class="relative">
+                        <div class="w-2.5 h-2.5 rounded-full bg-red-500"></div>
+                        <div class="absolute inset-0 w-2.5 h-2.5 rounded-full bg-red-500 animate-ping opacity-40"></div>
+                    </div>
+                    <h1 class="text-base sm:text-lg font-light tracking-[0.15em] text-white/95">ISS ORBITAL <span
+                            class="text-cyan-400 font-medium">TRACKER</span></h1>
+                </div>
+                <div class="flex items-center gap-2 mb-3">
+                    <span class="status-live text-[10px] font-mono text-green-400/80 tracking-wider">CANLI VERİ</span>
+                    <span class="text-white/10 text-[10px]">·</span>
+                    <span id="ui-time" class="text-[10px] font-mono text-white/30">--:--:-- UTC</span>
+                </div>
+
+                <!-- City Search -->
+                <div class="search-container">
+                    <div class="flex gap-1.5">
+                        <input id="city-search-input" type="text" placeholder="Şehir veya ülke ara..."
+                            onkeydown="if(event.key==='Enter') searchCityAndFocus()"
+                            oninput="onSearchInput(this.value)">
+                        <button onclick="searchCityAndFocus()"
+                            class="flex-shrink-0 px-2.5 py-1.5 rounded-lg border border-cyan-500/20 bg-cyan-500/5 hover:bg-cyan-500/15 text-[10px] font-mono text-cyan-400 transition">GİT</button>
+                    </div>
+                    <div id="search-suggestions" class="glass-elevated"></div>
+                    <p id="city-search-status" class="text-[9px] font-mono text-white/30 mt-1 truncate hidden"></p>
+                </div>
+            </div>
+
+        </header>
+
+        <!-- ─── BOTTOM LEFT: NASA Cam + Layers + Data Sources ─── -->
+        <div class="absolute bottom-4 left-4 sm:bottom-6 sm:left-6 pointer-events-auto flex flex-col gap-3 panel-mw-sm">
+
+            <!-- NASA Live Cam (collapsible, resizable) -->
+            <div class="glass p-3 flex flex-col gap-1">
+                <div class="flex justify-between items-center mb-1 cursor-pointer"
+                    onclick="togglePanel('nasa-cam-content', 'nasa-icon')">
+                    <div class="flex items-center gap-2">
+                        <div class="relative">
+                            <div class="w-1.5 h-1.5 rounded-full bg-red-500"></div>
+                            <div class="absolute inset-0 w-1.5 h-1.5 rounded-full bg-red-500 animate-ping opacity-30">
+                            </div>
+                        </div>
+                        <h3 class="hud-label">NASA CANLI</h3>
+                    </div>
+                    <span id="nasa-icon"
+                        class="text-white/25 hover:text-white transition text-xs font-mono cursor-pointer">−</span>
+                </div>
+                <div id="nasa-cam-content" class="panel-transition opacity-100 max-h-[400px] mt-1">
+                    <div id="nasa-cam-panel" class="relative w-full overflow-hidden rounded-lg bg-black/50">
+                        <iframe class="absolute top-0 left-0 w-full h-full"
+                            src="https://www.youtube.com/embed/FV4Q9DryTG8?autoplay=1&mute=1&controls=0&modestbranding=1"
+                            title="NASA ISS Live" frameborder="0"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+                    </div>
+                </div>
+            </div>
+
+
+            <!-- Data Sources Panel (only actually used APIs) -->
+            <div class="glass p-3 flex flex-col gap-1">
+                <div class="flex justify-between items-center mb-1 cursor-pointer"
+                    onclick="togglePanel('datasrc-content', 'datasrc-icon')">
+                    <h3 class="hud-label">VERİ KAYNAKLARI</h3>
+                    <span id="datasrc-icon" class="text-white/25 hover:text-white transition text-xs font-mono">+</span>
+                </div>
+                <div id="datasrc-content"
+                    class="panel-transition opacity-0 max-h-0 text-[10px] text-white/40 leading-relaxed space-y-1">
+                    <div class="data-source-item">
+                        <span class="ds-icon">🛰️</span>
+                        <p>ISS konum verisi: <a href="https://wheretheiss.at" target="_blank"
+                                rel="noopener">WhereTheISS.at</a></p>
+                    </div>
+                    <div class="data-source-item">
+                        <span class="ds-icon">🌤️</span>
+                        <p>Hava durumu: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo
+                                API</a></p>
+                    </div>
+                    <div class="data-source-item">
+                        <span class="ds-icon">🌎</span>
+                        <p>Uydu katmanları: <a href="https://gibs.earthdata.nasa.gov" target="_blank"
+                                rel="noopener">NASA GIBS WMS</a></p>
+                    </div>
+                    <div class="data-source-item">
+                        <span class="ds-icon">📍</span>
+                        <p>Ters geocode: <a href="https://www.bigdatacloud.com" target="_blank"
+                                rel="noopener">BigDataCloud</a></p>
+                    </div>
+                    <div class="data-source-item">
+                        <span class="ds-icon">📺</span>
+                        <p>Canlı yayın: <a href="https://www.youtube.com/watch?v=FV4Q9DryTG8" target="_blank"
+                                rel="noopener">NASA ISS Live Cam</a></p>
+                    </div>
+                    <div class="data-source-item">
+                        <span class="ds-icon">🌋</span>
+                        <p>Deprem verisi: <a href="https://earthquake.usgs.gov" target="_blank" rel="noopener">USGS
+                                Earthquake API</a></p>
+                    </div>
+                    <div class="data-source-item">
+                        <span class="ds-icon">🌌</span>
+                        <p>Aurora tahmini: <a href="https://www.swpc.noaa.gov" target="_blank" rel="noopener">NOAA
+                                SWPC</a></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ─── BOTTOM RIGHT: Telemetry + Weather ─── -->
+        <div
+            class="flex flex-col justify-end items-end gap-3 absolute bottom-4 right-4 sm:bottom-6 sm:right-6 pointer-events-auto panel-mw-md">
+
+            <!-- Live Telemetry -->
+            <div class="glass p-4 sm:p-5 w-full">
+                <div class="flex justify-between items-center cursor-pointer"
+                    onclick="togglePanel('telemetry-content', 'tel-icon')">
+                    <h3 class="hud-label">CANLI TELEMETRİ</h3>
+                    <span id="tel-icon" class="text-white/25 hover:text-white transition text-xs font-mono">−</span>
+                </div>
+
+                <div id="telemetry-content" class="panel-transition opacity-100 max-h-80 mt-3 space-y-2.5 text-[11px]">
+                    <div class="flex justify-between items-center">
+                        <span class="hud-label hud-label-tight">ENLEM</span>
+                        <span id="ui-lat" class="hud-value text-cyan-300">--</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="hud-label hud-label-tight">BOYLAM</span>
+                        <span id="ui-lon" class="hud-value text-cyan-300">--</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="hud-label hud-label-tight">YÜKSEKLİK</span>
+                        <span id="ui-alt" class="hud-value text-white/90">--</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="hud-label hud-label-tight">HIZ</span>
+                        <span id="ui-vel" class="hud-value text-white/90">--</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="hud-label hud-label-tight">GÖRÜNÜRLÜK</span>
+                        <span id="ui-vis" class="hud-value text-white/90">--</span>
+                    </div>
+                    <div class="flex justify-between items-center pt-2 border-t border-white/[0.04]">
+                        <span class="hud-label hud-label-tight">YÖRÜNGELER</span>
+                        <span id="ui-orbit" class="hud-value text-white/50 text-[10px]">--</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="hud-label hud-label-tight">GÜNEŞ</span>
+                        <span id="ui-sun" class="hud-value text-yellow-400/70 text-[10px]">--</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Weather Panel -->
+            <div id="weather-panel" class="glass p-4 sm:p-5 w-full hidden relative overflow-hidden">
+                <div
+                    class="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-emerald-500/40 to-transparent">
+                </div>
+
+                <div class="flex justify-between items-center cursor-pointer"
+                    onclick="togglePanel('weather-content', 'wx-icon')">
+                    <h3 class="hud-label hud-emerald">SEÇİLİ
+                        KONUM</h3>
+                    <div class="flex items-center gap-2">
+                        <span id="wx-icon" class="text-white/25 hover:text-white transition text-xs font-mono">−</span>
+                        <button onclick="closeWeatherPanel(event)"
+                            class="text-white/25 hover:text-red-400 transition text-xs font-mono ml-1">✕</button>
+                    </div>
+                </div>
+
+                <div id="weather-loading" class="text-center py-4 hidden">
+                    <div
+                        class="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-2">
+                    </div>
+                </div>
+
+                <div id="weather-content"
+                    class="panel-transition opacity-100 max-h-[500px] mt-3 space-y-2.5 text-[11px] hidden">
+                    <div class="flex justify-between items-center">
+                        <span class="hud-label hud-label-tight">BÖLGE</span>
+                        <span id="wx-location"
+                            class="hud-value text-yellow-300 text-right w-2/3 truncate text-[10px]">--</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="hud-label hud-label-tight">KOORDİNAT</span>
+                        <span id="wx-coord" class="hud-value text-emerald-300 text-[10px]">--</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="hud-label hud-label-tight">SICAKLIK</span>
+                        <span class="hud-value text-white/90"><span id="wx-temp">--</span>°C</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="hud-label hud-label-tight">NEM</span>
+                        <span id="wx-hum" class="hud-value text-cyan-300">%--</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="hud-label hud-label-tight">YAĞIŞ</span>
+                        <span id="wx-precip" class="hud-value text-blue-300">-- mm</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="hud-label hud-label-tight">RÜZGAR</span>
+                        <span class="hud-value text-white/50"><span id="wx-wind">--</span> / <span id="wx-gust"
+                                class="text-red-400/70">--</span> km/h</span>
+                    </div>
+                    <div class="flex justify-between items-center pt-2 border-t border-white/[0.04]">
+                        <span class="hud-label hud-label-tight">YEREL SAAT</span>
+                        <span id="wx-localtime" class="hud-value text-amber-300 text-[10px]">--:--:--</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="hud-label hud-label-tight">SAAT DİLİMİ</span>
+                        <span id="wx-timezone" class="hud-value text-white/40 text-[10px]">--</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="hud-label hud-label-tight">GÜN DOĞUMU</span>
+                        <span id="wx-sunrise" class="hud-value text-orange-300/70 text-[10px]">--:--</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="hud-label hud-label-tight">GÜN BATIMI</span>
+                        <span id="wx-sunset" class="hud-value text-indigo-300/70 text-[10px]">--:--</span>
+                    </div>
+
+                    <!-- 7 Day Forecast (visible when weather module active) -->
+                    <div id="forecast-section" class="hidden pt-3 border-t border-white/[0.04]">
+                        <div class="flex items-center gap-2 mb-2.5">
+                            <span class="text-blue-400 text-xs">📅</span>
+                            <h4 class="hud-label hud-blue">7
+                                GÜNLÜK TAHMİN</h4>
+                        </div>
+                        <div id="forecast-list" class="space-y-1.5"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Temperature Scale Legend -->
+    <div id="temp-scale">
+        <div class="glass px-5 py-3 flex flex-col items-center gap-2">
+            <span class="text-[9px] font-mono text-white/40 tracking-widest">SICAKLIK SKALASI (°C)</span>
+            <div class="flex items-center">
+                <div class="temp-gradient-bar">
+                </div>
+            </div>
+            <div class="flex justify-between w-[280px] text-[8px] font-mono text-white/45">
+                <span>-40</span><span>-20</span><span>-10</span><span>0</span><span>10</span><span>20</span><span>30</span><span>40</span><span>50</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- UI Toggle + Fullscreen Controls -->
+    <div id="ui-controls">
+        <button id="fullscreen-btn" onclick="toggleFullscreen()" title="Tam Ekran">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path
+                    d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+            </svg>
+        </button>
+        <button id="ui-toggle-btn" onclick="toggleGlobalUI()" title="Arayüzü Göster/Gizle">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                <circle cx="12" cy="12" r="3" />
+            </svg>
+        </button>
+    </div>
+
+    <!-- ============================================= -->
+    <!-- JAVASCRIPT — ENGINE                           -->
+    <!-- ============================================= -->
+    <script>
+        // =============================================
+        // FULLSCREEN TOGGLE
+        // =============================================
+        function toggleFullscreen() {
+            if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+                document.documentElement.requestFullscreen?.() || document.documentElement.webkitRequestFullscreen?.();
+            } else {
+                document.exitFullscreen?.() || document.webkitExitFullscreen?.();
+            }
+        }
+
+        document.addEventListener('fullscreenchange', () => {
+            const btn = document.getElementById('fullscreen-btn');
+            if (!btn) return;
+            const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement;
+            btn.classList.toggle('text-cyan-400', !!isFullscreen);
+            btn.classList.toggle('text-white/30', !isFullscreen);
+        });
+
+        // =============================================
+        const moduleState = { weather: false, telescope: false, lightning: false, storm: false, earthquake: false, aurora: false };
+
+        function toggleModule(id) {
+            moduleState[id] = !moduleState[id];
+            const btn = document.getElementById(`modbar-${id}`);
+            if (btn) btn.classList.toggle('mod-active', moduleState[id]);
+
+            if (moduleState[id]) activateModule(id);
+            else deactivateModule(id);
+        }
+
+        function activateModule(id) {
+            switch (id) {
+                case 'weather': activateWeatherModule(); break;
+                case 'telescope': activateTelescopeModule(); break;
+                case 'lightning': activateLightningModule(); break;
+                case 'storm': activateStormModule(); break;
+                case 'earthquake': activateEarthquakeModule(); break;
+                case 'aurora': activateAuroraModule(); break;
+            }
+        }
+        function deactivateModule(id) {
+            switch (id) {
+                case 'weather': deactivateWeatherModule(); break;
+                case 'telescope': deactivateTelescopeModule(); break;
+                case 'lightning': deactivateLightningModule(); break;
+                case 'storm': deactivateStormModule(); break;
+                case 'earthquake': deactivateEarthquakeModule(); break;
+                case 'aurora': deactivateAuroraModule(); break;
+            }
+        }
+
+        // =============================================
+        // LAYER FLYOUT TOGGLE
+        // =============================================
+        let layerFlyoutOpen = false;
+        function toggleLayerFlyout() {
+            layerFlyoutOpen = !layerFlyoutOpen;
+            const flyout = document.getElementById('layer-flyout');
+            const btn = document.getElementById('modbar-layers');
+            flyout.classList.toggle('visible', layerFlyoutOpen);
+            if (btn) btn.classList.toggle('mod-active', layerFlyoutOpen);
+        }
+
+        // Close flyout when clicking outside
+        document.addEventListener('click', (e) => {
+            if (layerFlyoutOpen && !e.target.closest('#layer-flyout') && !e.target.closest('#modbar-layers')) {
+                layerFlyoutOpen = false;
+                document.getElementById('layer-flyout').classList.remove('visible');
+                document.getElementById('modbar-layers')?.classList.remove('mod-active');
+            }
+        });
+
+        // =============================================
+        // UI PANEL TOGGLE
+        // =============================================
+        function togglePanel(contentId, iconId) {
+            const c = document.getElementById(contentId);
+            const icon = document.getElementById(iconId);
+            if (c.style.maxHeight === '0px' || c.classList.contains('hidden') || parseFloat(c.style.opacity) === 0) {
+                c.classList.remove('hidden');
+                setTimeout(() => { c.style.maxHeight = '600px'; c.style.opacity = '1'; c.style.marginTop = '0.75rem'; }, 10);
+                if (icon) icon.innerText = '−';
+            } else {
+                c.style.maxHeight = '0px'; c.style.opacity = '0'; c.style.marginTop = '0px';
+                if (icon) icon.innerText = '+';
+            }
+        }
+
+        function closeWeatherPanel(e) {
+            e.stopPropagation();
+            document.getElementById('weather-panel').classList.add('hidden');
+            if (typeof weatherMarkerGroup !== 'undefined') weatherMarkerGroup.visible = false;
+        }
+
+        let uiVisible = true;
+        function toggleGlobalUI() {
+            uiVisible = !uiVisible;
+            const op = uiVisible ? '1' : '0';
+
+            // Main UI container — opacity + pointer-events blocker class
+            const mainUi = document.getElementById('main-ui');
+            mainUi.style.opacity = op;
+            mainUi.classList.toggle('ui-hidden', !uiVisible);
+
+            // Elements controlled by CSS .visible class:
+            const tempScale = document.getElementById('temp-scale');
+            if (tempScale) tempScale.style.opacity = uiVisible ? '' : '0';
+
+            const ltStatus = document.getElementById('lightning-status');
+            if (ltStatus) ltStatus.style.opacity = uiVisible ? '' : '0';
+
+            const eqStatus = document.getElementById('earthquake-status');
+            if (eqStatus) eqStatus.style.opacity = uiVisible ? '' : '0';
+
+            const auStatus = document.getElementById('aurora-status');
+            if (auStatus) auStatus.style.opacity = uiVisible ? '' : '0';
+
+            // Always-visible elements (no .visible class mechanism)
+            const dnWidget = document.getElementById('daynight-widget');
+            if (dnWidget) dnWidget.style.opacity = op;
+
+            const modBar = document.getElementById('modules-bar');
+            if (modBar) {
+                modBar.style.opacity = op;
+                modBar.style.pointerEvents = uiVisible ? '' : 'none';
+            }
+
+            const flyout = document.getElementById('layer-flyout');
+            if (flyout && !uiVisible) {
+                flyout.classList.remove('visible');
+                layerFlyoutOpen = false;
+            }
+        }
+
+        // =============================================
+        // THREE.JS — SCENE SETUP
+        // =============================================
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 2000);
+        camera.position.set(0, 5, 15);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.1;
+        container.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.06;
+        controls.enablePan = false;
+        controls.minDistance = 6.5;
+        controls.maxDistance = 30;
+        controls.rotateSpeed = 0.5;
+
+        // =============================================
+        // POST-PROCESSING (BLOOM)
+        // =============================================
+        const renderScene = new THREE.RenderPass(scene, camera);
+        // UnrealBloomPass(resolution, strength, radius, threshold)
+        const bloomPass = new THREE.UnrealBloomPass(
+            new THREE.Vector2(window.innerWidth, window.innerHeight), 0.9, 0.35, 0.92
+        );
+
+        const composer = new THREE.EffectComposer(renderer);
+        composer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        composer.addPass(renderScene);
+        composer.addPass(bloomPass);
+
+        // =============================================
+        // EARTH — Custom Day/Night Shader
+        // =============================================
+        const earthRadius = 5;
+        const textureLoader = new THREE.TextureLoader();
+        const texBase = 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/textures/planets/';
+
+        // High-res: NASA Blue Marble day texture (4096x2048)
+        const earthDayTex = textureLoader.load('https://eoimages.gsfc.nasa.gov/images/imagerecords/74000/74393/world.topo.200412.3x5400x2700.jpg', () => {
+            setTimeout(() => {
+                const ld = document.getElementById('loader');
+                if (ld) { ld.style.opacity = '0'; setTimeout(() => ld.style.display = 'none', 600); }
+            }, 400);
+        }, undefined, () => {
+            setTimeout(() => {
+                const ld = document.getElementById('loader');
+                if (ld) { ld.style.opacity = '0'; setTimeout(() => ld.style.display = 'none', 600); }
+            }, 1000);
+        });
+        const earthNightTex = textureLoader.load(texBase + 'earth_lights_2048.png');
+        const earthSpecTex = textureLoader.load(texBase + 'earth_specular_2048.jpg');
+        const earthNormTex = textureLoader.load(texBase + 'earth_normal_2048.jpg');
+        const earthCloudTex = textureLoader.load(texBase + 'earth_clouds_1024.png');
+
+        // Custom shader material — Day/Night with city lights
+        const earthShaderMat = new THREE.ShaderMaterial({
+            uniforms: {
+                dayTexture: { value: earthDayTex },
+                nightTexture: { value: earthNightTex },
+                specularMap: { value: earthSpecTex },
+                normalMap: { value: earthNormTex },
+                sunDirection: { value: new THREE.Vector3(1, 0, 0) },
+                nightIntensity: { value: 1.8 },
+            },
+            vertexShader: `
+                varying vec2 vUv;
+                varying vec3 vNormal;
+                varying vec3 vWorldPosition;
+
+                void main() {
+                    vUv = uv;
+                    // World-space normals — must match sunDirection which is in world space
+                    vNormal = normalize((modelMatrix * vec4(normal, 0.0)).xyz);
+                    vec4 worldPos = modelMatrix * vec4(position, 1.0);
+                    vWorldPosition = worldPos.xyz;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+            `,
+            fragmentShader: `
+                uniform sampler2D dayTexture;
+                uniform sampler2D nightTexture;
+                uniform sampler2D specularMap;
+                uniform vec3 sunDirection;
+                uniform float nightIntensity;
+
+                varying vec2 vUv;
+                varying vec3 vNormal;
+                varying vec3 vWorldPosition;
+
+                void main() {
+                    vec3 norm = normalize(vNormal);
+                    vec3 sunDir = normalize(sunDirection);
+
+                    float dotNL = dot(norm, sunDir);
+
+                    // Wider smooth terminator transition for dramatic day/night
+                    float dayFactor = smoothstep(-0.2, 0.25, dotNL);
+
+                    vec4 dayColor = texture2D(dayTexture, vUv);
+                    vec4 nightColor = texture2D(nightTexture, vUv);
+
+                    // Specular highlight on water
+                    float spec = texture2D(specularMap, vUv).r;
+                    float specHighlight = pow(max(dot(reflect(-sunDir, norm), normalize(-vWorldPosition)), 0.0), 20.0) * spec * 0.35;
+
+                    // Day side: natural lighting
+                    vec3 dayLit = dayColor.rgb * (0.15 + 0.85 * max(dotNL, 0.0)) + vec3(specHighlight);
+
+                    // Night side: bright city lights with warm glow
+                    vec3 nightLit = nightColor.rgb * nightIntensity * vec3(1.0, 0.85, 0.6);
+
+                    vec3 finalColor = mix(nightLit, dayLit, dayFactor);
+
+                    // Dramatic sunset/sunrise gradient at the terminator
+                    float terminatorGlow = exp(-pow((dotNL + 0.05) * 5.0, 2.0)) * 0.25;
+                    vec3 sunsetColor = mix(vec3(0.9, 0.2, 0.05), vec3(1.0, 0.5, 0.15), smoothstep(-0.1, 0.1, dotNL));
+                    finalColor += sunsetColor * terminatorGlow;
+
+                    // Pink twilight tint
+                    float twilightGlow = exp(-pow((dotNL + 0.15) * 4.0, 2.0)) * 0.08;
+                    finalColor += vec3(0.6, 0.2, 0.4) * twilightGlow;
+
+                    gl_FragColor = vec4(finalColor, 1.0);
+                }
+            `
+        });
+
+        const earthGeo = new THREE.SphereGeometry(earthRadius, 192, 192);
+        const earth = new THREE.Mesh(earthGeo, earthShaderMat);
+        earth.rotation.y = -Math.PI / 2;
+        scene.add(earth);
+
+        // Clouds
+        const cloudGeo = new THREE.SphereGeometry(earthRadius + 0.06, 192, 192);
+        const cloudMat = new THREE.MeshPhongMaterial({
+            map: earthCloudTex,
+            transparent: true,
+            opacity: 0.22,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+        });
+        const clouds = new THREE.Mesh(cloudGeo, cloudMat);
+        earth.add(clouds);
+
+        // =============================================
+        // ATMOSPHERE GLOW (Fresnel rim)
+        // =============================================
+        const atmosGeo = new THREE.SphereGeometry(earthRadius + 0.15, 64, 64);
+        const atmosMat = new THREE.ShaderMaterial({
+            uniforms: {
+                glowColor: { value: new THREE.Color(0x4488ff) },
+                sunDirection: { value: new THREE.Vector3(1, 0, 0) },
+                viewVector: { value: new THREE.Vector3() },
+            },
+            vertexShader: `
+                uniform vec3 viewVector;
+                varying float intensity;
+                varying float sunFactor;
+                uniform vec3 sunDirection;
+
+                void main() {
+                    vec3 vNormal = normalize(normalMatrix * normal);
+                    vec3 vNormel = normalize(normalMatrix * position);
+                    intensity = pow(0.72 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 2.5);
+
+                    vec3 worldNorm = normalize((modelMatrix * vec4(normal, 0.0)).xyz);
+                    sunFactor = max(dot(worldNorm, normalize(sunDirection)), 0.0);
+
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+            `,
+            fragmentShader: `
+                uniform vec3 glowColor;
+                varying float intensity;
+                varying float sunFactor;
+
+                void main() {
+                    float alpha = intensity * (0.3 + sunFactor * 0.5);
+                    vec3 color = mix(glowColor * 0.3, glowColor, sunFactor);
+                    gl_FragColor = vec4(color, alpha * 0.6);
+                }
+            `,
+            side: THREE.BackSide,
+            blending: THREE.AdditiveBlending,
+            transparent: true,
+            depthWrite: false,
+        });
+        const atmosphere = new THREE.Mesh(atmosGeo, atmosMat);
+        scene.add(atmosphere);
+
+        // =============================================
+        // WEATHER OVERLAY LAYER
+        // =============================================
+        const wxOverlayGeo = new THREE.SphereGeometry(earthRadius + 0.03, 128, 128);
+        const wxOverlayMat = new THREE.MeshBasicMaterial({
+            transparent: true, opacity: 0.95,
+            blending: THREE.NormalBlending,
+            alphaHash: false,
+            depthWrite: false,
+        });
+        const wxOverlayMesh = new THREE.Mesh(wxOverlayGeo, wxOverlayMat);
+        wxOverlayMesh.visible = false;
+        earth.add(wxOverlayMesh);
+
+        // =============================================
+        // RADAR OVERLAY LAYER (separate mesh for coexistence)
+        // =============================================
+        const radarOverlayGeo = new THREE.SphereGeometry(earthRadius + 0.04, 128, 128);
+        const radarOverlayMat = new THREE.MeshBasicMaterial({
+            transparent: true, opacity: 0.85,
+            blending: THREE.NormalBlending, depthWrite: false
+        });
+        const radarOverlayMesh = new THREE.Mesh(radarOverlayGeo, radarOverlayMat);
+        radarOverlayMesh.visible = false;
+        earth.add(radarOverlayMesh);
+
+        // =============================================
+        // REAL TEMPERATURE MAP (Open-Meteo batch)
+        // =============================================
+        async function generateRealTemperatureMap() {
+            // Load night texture for land mask (cities only on land)
+            let nightPixelData = null;
+            let nightW = 2048, nightH = 2048;
+            try {
+                const nightImg = new Image();
+                nightImg.crossOrigin = 'anonymous';
+                nightImg.src = texBase + 'earth_lights_2048.png';
+                await new Promise((resolve) => {
+                    nightImg.onload = () => {
+                        const nightCanvas = document.createElement('canvas');
+                        nightCanvas.width = nightImg.width; nightCanvas.height = nightImg.height;
+                        const nightCtx = nightCanvas.getContext('2d');
+                        nightCtx.drawImage(nightImg, 0, 0);
+                        nightPixelData = nightCtx.getImageData(0, 0, nightCanvas.width, nightCanvas.height).data;
+                        nightW = nightImg.width; nightH = nightImg.height;
+                        resolve();
+                    };
+                    nightImg.onerror = () => resolve(); // graceful fallback
+                    setTimeout(resolve, 3000); // timeout after 3s
+                });
+            } catch (e) { console.warn('Night texture load failed:', e); }
+
+            // 9 lats × 9 lons = 81-point grid over the globe
+            const latBands = [-80, -60, -40, -20, 0, 20, 40, 60, 80];
+            const lonBands = [-160, -120, -80, -40, 0, 40, 80, 120, 160];
+            const lats = [], lons = [];
+            for (const lt of latBands) for (const ln of lonBands) { lats.push(lt); lons.push(ln); }
+
+            try {
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${lats.join(',')}&longitude=${lons.join(',')}&current=temperature_2m&timezone=UTC&forecast_days=1`;
+                const res = await fetch(url);
+                if (!res.ok) throw new Error('Open-Meteo error');
+                const raw = await res.json();
+                const dataArr = Array.isArray(raw) ? raw : [raw];
+                const temps = dataArr.map(d => d.current?.temperature_2m ?? 15);
+
+                // Saturated color ramp — zoom.earth style
+                // -40°C deep indigo → 0°C cyan → 20°C yellow → 40°C+ dark red
+                const colorStops = [
+                    { t: -40, r: 18, g: 10, b: 140 },  // deep indigo
+                    { t: -25, r: 20, g: 60, b: 210 },  // cobalt blue
+                    { t: -10, r: 30, g: 120, b: 240 },  // bright blue
+                    { t: 0, r: 40, g: 195, b: 245 },  // cyan
+                    { t: 10, r: 60, g: 220, b: 120 },  // teal-green
+                    { t: 18, r: 248, g: 235, b: 40 },  // vivid yellow
+                    { t: 27, r: 252, g: 140, b: 12 },  // orange
+                    { t: 36, r: 235, g: 40, b: 15 },  // red
+                    { t: 50, r: 148, g: 8, b: 8 },  // dark red
+                ];
+                function tempToRGB(temp) {
+                    const t = Math.max(-40, Math.min(50, temp));
+                    let i = 0;
+                    while (i < colorStops.length - 2 && colorStops[i + 1].t < t) i++;
+                    const a = colorStops[i], b = colorStops[i + 1];
+                    const f = (t - a.t) / (b.t - a.t);
+                    return {
+                        r: Math.round(a.r + f * (b.r - a.r)),
+                        g: Math.round(a.g + f * (b.g - a.g)),
+                        b: Math.round(a.b + f * (b.b - a.b)),
+                    };
+                }
+
+                // Bilinear interpolation at any lat/lon from grid
+                const ROWS = latBands.length, COLS = lonBands.length;
+                function interpTemp(lat, lon) {
+                    const latNorm = (lat - latBands[0]) / (latBands[ROWS - 1] - latBands[0]) * (ROWS - 1);
+                    const lonNorm = (lon - lonBands[0]) / (lonBands[COLS - 1] - lonBands[0]) * (COLS - 1);
+                    const r0 = Math.max(0, Math.min(ROWS - 1, Math.floor(latNorm)));
+                    const r1 = Math.min(ROWS - 1, r0 + 1);
+                    const c0 = Math.max(0, Math.min(COLS - 1, Math.floor(lonNorm)));
+                    const c1 = Math.min(COLS - 1, c0 + 1);
+                    const fr = latNorm - r0, fc = lonNorm - c0;
+                    return temps[r0 * COLS + c0] * (1 - fr) * (1 - fc) + temps[r1 * COLS + c0] * fr * (1 - fc)
+                        + temps[r0 * COLS + c1] * (1 - fr) * fc + temps[r1 * COLS + c1] * fr * fc;
+                }
+
+                const W = 720, H = 360;
+                const canvas = document.createElement('canvas');
+                canvas.width = W; canvas.height = H;
+                const ctx = canvas.getContext('2d');
+                const imgData = ctx.createImageData(W, H);
+                const px = imgData.data;
+                for (let y = 0; y < H; y++) {
+                    const lat = 90 - (y / H) * 180;
+                    const clampedLat = Math.max(latBands[0], Math.min(latBands[ROWS - 1], lat));
+                    for (let x = 0; x < W; x++) {
+                        const lon = (x / W) * 360 - 180;
+                        const clampedLon = Math.max(lonBands[0], Math.min(lonBands[COLS - 1], lon));
+                        const temp = interpTemp(clampedLat, clampedLon);
+                        const { r, g, b } = tempToRGB(temp);
+                        const idx = (y * W + x) * 4;
+
+                        // Check if this pixel is land using night texture (city lights = land only)
+                        let isLand = true; // default to apply temperature everywhere if night texture fails
+                        if (nightPixelData) {
+                            const nightX = Math.round((x / W) * (nightW - 1));
+                            const nightY = Math.round((y / H) * (nightH - 1));
+                            const nightIdx = (nightY * nightW + nightX) * 4;
+                            // City lights brightness (only on land)
+                            const brightness = (nightPixelData[nightIdx] + nightPixelData[nightIdx + 1] + nightPixelData[nightIdx + 2]) / 3 / 255;
+                            isLand = brightness > 0.01; // land has any light; ocean is dark
+                        }
+
+                        if (isLand) {
+                            // Alpha: 130 (mild ~15°C) → 210 (extreme cold/hot)
+                            // Only on land areas; ocean stays transparent
+                            const extremity = Math.min(1, Math.abs(temp - 15) / 40);
+                            const alpha = Math.round(130 + extremity * 80);
+                            px[idx] = r; px[idx + 1] = g; px[idx + 2] = b; px[idx + 3] = alpha;
+                        } else {
+                            // Ocean: transparent
+                            px[idx] = r; px[idx + 1] = g; px[idx + 2] = b; px[idx + 3] = 0;
+                        }
+                    }
+                }
+                ctx.putImageData(imgData, 0, 0);
+                const tex = new THREE.CanvasTexture(canvas);
+                tex.needsUpdate = true;
+                return tex;
+            } catch (err) {
+                console.error('Temperature map generation failed:', err);
+                return null;
+            }
+        }
+
+        function changeLayer(type, btnEl) {
+            // Update flyout button styles (excluding borders toggle which is independent)
+            document.querySelectorAll('.flyout-btn:not([onclick*="toggleBorders"])').forEach(b => {
+                b.classList.remove('flyout-active');
+            });
+            btnEl.classList.add('flyout-active');
+
+            if (type === 'default') {
+                wxOverlayMesh.visible = false;
+                radarOverlayMesh.visible = false;
+                clouds.visible = true;
+                document.getElementById('temp-scale').classList.remove('visible');
+                return;
+            }
+
+            // Temperature: use real Open-Meteo grid map
+            if (type === 'temperature') {
+                document.getElementById('layer-loader').style.display = 'flex';
+                generateRealTemperatureMap().then(tex => {
+                    document.getElementById('layer-loader').style.display = 'none';
+                    if (tex) {
+                        wxOverlayMat.map = tex;
+                        wxOverlayMat.needsUpdate = true;
+                        wxOverlayMesh.visible = true;
+                        radarOverlayMesh.visible = false;
+                        clouds.visible = false;
+                        document.getElementById('temp-scale').classList.add('visible');
+                    } else {
+                        clouds.visible = true;
+                    }
+                }).catch(() => {
+                    document.getElementById('layer-loader').style.display = 'none';
+                    clouds.visible = true;
+                });
+                return;
+            }
+
+            const d = new Date(); d.setDate(d.getDate() - 2);
+            const ds = d.toISOString().split('T')[0];
+
+            let layer, useRadarMesh = false;
+            if (type === 'precipitation') layer = 'IMERG_Precipitation_Rate';
+            else if (type === 'radar') { layer = 'IMERG_Precipitation_Rate'; useRadarMesh = true; }
+            else if (type === 'clouds_sat') layer = 'MODIS_Terra_CorrectedReflectance_TrueColor';
+
+            document.getElementById('layer-loader').style.display = 'flex';
+            const url = `https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&LAYERS=${layer}&VERSION=1.1.1&FORMAT=image/png&TRANSPARENT=true&WIDTH=2048&HEIGHT=1024&SRS=EPSG:4326&BBOX=-180,-90,180,90&TIME=${ds}`;
+
+            textureLoader.load(url, (tex) => {
+                if (useRadarMesh) {
+                    radarOverlayMat.map = tex;
+                    radarOverlayMat.needsUpdate = true;
+                    radarOverlayMesh.visible = true;
+                    wxOverlayMesh.visible = false;
+                } else {
+                    wxOverlayMat.map = tex;
+                    wxOverlayMat.needsUpdate = true;
+                    wxOverlayMesh.visible = true;
+                    radarOverlayMesh.visible = false;
+                }
+                clouds.visible = false;
+                document.getElementById('layer-loader').style.display = 'none';
+                document.getElementById('temp-scale').classList.remove('visible');
+            }, undefined, () => {
+                console.error("Layer load failed");
+                document.getElementById('layer-loader').style.display = 'none';
+                document.getElementById('temp-scale').classList.remove('visible');
+                clouds.visible = true;
+            });
+        }
+
+        // =============================================
+        // COUNTRY BORDERS OVERLAY
+        // =============================================
+        let bordersOverlayMesh = null;
+        let bordersActive = false;
+
+        function toggleBordersLayer(btnEl) {
+            bordersActive = !bordersActive;
+            btnEl.classList.toggle('flyout-active', bordersActive);
+
+            if (bordersActive) {
+                if (bordersOverlayMesh) {
+                    bordersOverlayMesh.visible = true;
+                    return;
+                }
+                document.getElementById('layer-loader').style.display = 'flex';
+                // Draw country borders on a canvas as texture overlay
+                // Using Natural Earth 50m (lightweight ~450KB vs 32MB of geo-countries)
+                const bordersUrl = 'https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_50m_admin_0_countries.geojson';
+                fetch(bordersUrl)
+                    .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+                    .then(geo => {
+                        const W = 2048, H = 1024;
+                        const canvas = document.createElement('canvas');
+                        canvas.width = W; canvas.height = H;
+                        const ctx = canvas.getContext('2d');
+                        ctx.clearRect(0, 0, W, H);
+                        ctx.strokeStyle = 'rgba(0, 229, 255, 0.75)';
+                        ctx.lineWidth = 1.5;
+
+                        function drawCoords(coords) {
+                            ctx.beginPath();
+                            for (let i = 0; i < coords.length; i++) {
+                                const [lon, lat] = coords[i];
+                                const x = ((lon + 180) / 360) * W;
+                                const y = ((90 - lat) / 180) * H;
+                                if (i === 0) ctx.moveTo(x, y);
+                                else ctx.lineTo(x, y);
+                            }
+                            ctx.stroke();
+                        }
+
+                        geo.features.forEach(f => {
+                            const geom = f.geometry;
+                            if (geom.type === 'Polygon') {
+                                geom.coordinates.forEach(ring => drawCoords(ring));
+                            } else if (geom.type === 'MultiPolygon') {
+                                geom.coordinates.forEach(poly => poly.forEach(ring => drawCoords(ring)));
+                            }
+                        });
+
+                        const tex = new THREE.CanvasTexture(canvas);
+                        tex.needsUpdate = true;
+                        const borderGeo = new THREE.SphereGeometry(earthRadius + 0.025, 192, 192);
+                        const borderMat = new THREE.MeshBasicMaterial({
+                            map: tex, transparent: true, opacity: 0.9,
+                            blending: THREE.NormalBlending, depthWrite: false
+                        });
+                        bordersOverlayMesh = new THREE.Mesh(borderGeo, borderMat);
+                        earth.add(bordersOverlayMesh);
+                        document.getElementById('layer-loader').style.display = 'none';
+                    }).catch(err => {
+                        console.error('Borders load failed:', err);
+                        document.getElementById('layer-loader').style.display = 'none';
+                        bordersActive = false;
+                        btnEl.classList.remove('flyout-active');
+                    });
+            } else {
+                if (bordersOverlayMesh) bordersOverlayMesh.visible = false;
+            }
+        }
+
+        // =============================================
+        // STARS (Background)
+        // =============================================
+        const starGeo = new THREE.BufferGeometry();
+        const starCount = 4000;
+        const starPos = new Float32Array(starCount * 3);
+        const starColors = new Float32Array(starCount * 3);
+        const starSizes = new Float32Array(starCount);
+
+        for (let i = 0; i < starCount; i++) {
+            starPos[i * 3] = (Math.random() - 0.5) * 600;
+            starPos[i * 3 + 1] = (Math.random() - 0.5) * 600;
+            starPos[i * 3 + 2] = (Math.random() - 0.5) * 600;
+
+            const temp = Math.random();
+            if (temp > 0.8) { starColors[i * 3] = 0.7; starColors[i * 3 + 1] = 0.8; starColors[i * 3 + 2] = 1.0; }
+            else if (temp > 0.4) { starColors[i * 3] = 1.0; starColors[i * 3 + 1] = 1.0; starColors[i * 3 + 2] = 1.0; }
+            else { starColors[i * 3] = 1.0; starColors[i * 3 + 1] = 0.9; starColors[i * 3 + 2] = 0.7; }
+
+            starSizes[i] = 0.3 + Math.random() * 0.7;
+        }
+
+        starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+        starGeo.setAttribute('color', new THREE.BufferAttribute(starColors, 3));
+        // Shared circle texture for ALL particle/sprite systems (eliminates square artifacts)
+        const sharedCircleTex = (() => {
+            const c = document.createElement('canvas');
+            c.width = c.height = 64;
+            const ctx = c.getContext('2d');
+            const half = 32;
+            const grad = ctx.createRadialGradient(half, half, 0, half, half, half);
+            grad.addColorStop(0, 'rgba(255,255,255,1)');
+            grad.addColorStop(0.25, 'rgba(255,255,255,0.85)');
+            grad.addColorStop(0.5, 'rgba(255,255,255,0.3)');
+            grad.addColorStop(1, 'rgba(255,255,255,0)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, 64, 64);
+            const tex = new THREE.CanvasTexture(c);
+            tex.needsUpdate = true;
+            return tex;
+        })();
+
+        // Glow texture (softer, larger falloff)
+        const sharedGlowTex = (() => {
+            const c = document.createElement('canvas');
+            c.width = c.height = 128;
+            const ctx = c.getContext('2d');
+            const half = 64;
+            const grad = ctx.createRadialGradient(half, half, 0, half, half, half);
+            grad.addColorStop(0, 'rgba(255,255,255,0.6)');
+            grad.addColorStop(0.15, 'rgba(255,255,255,0.3)');
+            grad.addColorStop(0.5, 'rgba(255,255,255,0.05)');
+            grad.addColorStop(1, 'rgba(255,255,255,0)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, 128, 128);
+            const tex = new THREE.CanvasTexture(c);
+            tex.needsUpdate = true;
+            return tex;
+        })();
+
+        const starMat = new THREE.PointsMaterial({
+            map: sharedCircleTex,
+            size: 0.5,
+            transparent: true,
+            opacity: 0.7,
+            vertexColors: true,
+            sizeAttenuation: true,
+            depthWrite: false,
+        });
+        const stars = new THREE.Points(starGeo, starMat);
+        scene.add(stars);
+
+        // =============================================
+        // BRIGHT STAR CATALOG (Telescope Module)
+        // =============================================
+        const brightStarCatalog = [
+            { name: "Sirius", ra: 6.75, dec: -16.72, mag: -1.46, color: 0xA3C9FF },
+            { name: "Canopus", ra: 6.40, dec: -52.70, mag: -0.74, color: 0xFFF4E8 },
+            { name: "Arcturus", ra: 14.26, dec: 19.18, mag: -0.05, color: 0xFFBF6F },
+            { name: "Vega", ra: 18.62, dec: 38.78, mag: 0.03, color: 0xBBCCFF },
+            { name: "Capella", ra: 5.28, dec: 46.00, mag: 0.08, color: 0xFFDD88 },
+            { name: "Rigel", ra: 5.24, dec: -8.20, mag: 0.13, color: 0xB8D4FF },
+            { name: "Procyon", ra: 7.66, dec: 5.22, mag: 0.34, color: 0xFFF5E0 },
+            { name: "Betelgeuse", ra: 5.92, dec: 7.41, mag: 0.42, color: 0xFF8844 },
+            { name: "Altair", ra: 19.85, dec: 8.87, mag: 0.77, color: 0xFFFFFF },
+            { name: "Aldebaran", ra: 4.60, dec: 16.51, mag: 0.86, color: 0xFFA060 },
+            { name: "Antares", ra: 16.49, dec: -26.43, mag: 1.09, color: 0xFF6633 },
+            { name: "Spica", ra: 13.42, dec: -11.16, mag: 1.04, color: 0xBBC8FF },
+            { name: "Pollux", ra: 7.76, dec: 28.03, mag: 1.14, color: 0xFFCC77 },
+            { name: "Fomalhaut", ra: 22.96, dec: -29.62, mag: 1.16, color: 0xD0DDFF },
+            { name: "Deneb", ra: 20.69, dec: 45.28, mag: 1.25, color: 0xE0E8FF },
+            { name: "Regulus", ra: 10.14, dec: 11.97, mag: 1.40, color: 0xC4D4FF },
+            { name: "Castor", ra: 7.58, dec: 31.89, mag: 1.58, color: 0xDDE4FF },
+            { name: "Bellatrix", ra: 5.42, dec: 6.35, mag: 1.64, color: 0xBBC8FF },
+            { name: "Mimosa", ra: 12.79, dec: -59.69, mag: 1.25, color: 0xB8CCFF },
+            { name: "Acrux", ra: 12.44, dec: -63.10, mag: 0.77, color: 0xBBC8FF },
+            { name: "Alioth", ra: 12.90, dec: 55.96, mag: 1.77, color: 0xFFFFFF },
+            { name: "Dubhe", ra: 11.06, dec: 61.75, mag: 1.79, color: 0xFFBB77 },
+            { name: "Merak", ra: 11.03, dec: 56.38, mag: 2.37, color: 0xDDE4FF },
+            { name: "Phecda", ra: 11.90, dec: 53.69, mag: 2.44, color: 0xDDE4FF },
+            { name: "Megrez", ra: 12.26, dec: 57.03, mag: 3.31, color: 0xFFFFFF },
+            { name: "Mizar", ra: 13.40, dec: 54.93, mag: 2.27, color: 0xDDE4FF },
+            { name: "Alkaid", ra: 13.79, dec: 49.31, mag: 1.86, color: 0xBBC8FF },
+            { name: "Polaris", ra: 2.53, dec: 89.26, mag: 1.98, color: 0xFFDD88 },
+            { name: "Schedar", ra: 0.68, dec: 56.54, mag: 2.24, color: 0xFFBB77 },
+            { name: "Caph", ra: 0.15, dec: 59.15, mag: 2.27, color: 0xFFF5E0 },
+            { name: "Navi", ra: 0.95, dec: 60.72, mag: 2.47, color: 0xBBC8FF },
+            { name: "Ruchbah", ra: 1.43, dec: 60.24, mag: 2.68, color: 0xDDE4FF },
+            { name: "Segin", ra: 1.91, dec: 63.67, mag: 3.37, color: 0xBBC8FF },
+        ];
+
+        const constellationLines = {
+            "Büyük Ayı": [["Dubhe", "Merak"], ["Merak", "Phecda"], ["Phecda", "Megrez"], ["Megrez", "Alioth"], ["Alioth", "Mizar"], ["Mizar", "Alkaid"], ["Megrez", "Dubhe"]],
+            "Cassiopeia": [["Schedar", "Caph"], ["Schedar", "Navi"], ["Navi", "Ruchbah"], ["Ruchbah", "Segin"]],
+            "Orion": [["Bellatrix", "Betelgeuse"], ["Rigel", "Bellatrix"]],
+        };
+
+        function raDecTo3D(ra, dec, r) {
+            const d = dec * Math.PI / 180;
+            const a = ra * 15 * Math.PI / 180;
+            return new THREE.Vector3(-r * Math.cos(d) * Math.cos(a), r * Math.sin(d), r * Math.cos(d) * Math.sin(a));
+        }
+
+        const brightStarsGroup = new THREE.Group();
+        brightStarsGroup.visible = false;
+        const catStarR = 200;
+        const starNameMap = {};
+
+        brightStarCatalog.forEach(s => {
+            const p = raDecTo3D(s.ra, s.dec, catStarR);
+            const sz = Math.max(0.4, (3 - s.mag) * 0.6);
+
+            const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: sharedCircleTex, color: s.color, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }));
+            sp.position.copy(p);
+            sp.scale.set(sz * 2, sz * 2, 1);
+            sp.userData = { name: s.name, mag: s.mag };
+            brightStarsGroup.add(sp);
+
+            const gl = new THREE.Sprite(new THREE.SpriteMaterial({ map: sharedGlowTex, color: s.color, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false }));
+            gl.position.copy(p);
+            gl.scale.set(sz * 5, sz * 5, 1);
+            brightStarsGroup.add(gl);
+
+            starNameMap[s.name] = p;
+        });
+        scene.add(brightStarsGroup);
+
+        const constellationGroup = new THREE.Group();
+        constellationGroup.visible = false;
+        Object.values(constellationLines).forEach(lines => {
+            lines.forEach(([a, b]) => {
+                const pa = starNameMap[a], pb = starNameMap[b];
+                if (pa && pb) {
+                    constellationGroup.add(new THREE.Line(
+                        new THREE.BufferGeometry().setFromPoints([pa, pb]),
+                        new THREE.LineBasicMaterial({ color: 0x8855cc, transparent: true, opacity: 0.15, blending: THREE.AdditiveBlending })
+                    ));
+                }
+            });
+        });
+        scene.add(constellationGroup);
+
+        // =============================================
+        // ISS MODEL (improved with solar panels)
+        // =============================================
+        const issGroup = new THREE.Group();
+
+        // Core body
+        const coreGeo = new THREE.SphereGeometry(0.06, 16, 16);
+        const coreMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+        coreMat.color.multiplyScalar(3.0);
+        issGroup.add(new THREE.Mesh(coreGeo, coreMat));
+
+        // Glass shell
+        const shellMat = new THREE.MeshPhysicalMaterial({
+            color: 0xffffff, transmission: 0.9, opacity: 1, metalness: 0, roughness: 0,
+            ior: 1.5, clearcoat: 1.0, clearcoatRoughness: 0.1, side: THREE.DoubleSide
+        });
+        issGroup.add(new THREE.Mesh(new THREE.SphereGeometry(0.12, 32, 32), shellMat));
+
+        // Solar panels (simple boxes)
+        const panelMat = new THREE.MeshBasicMaterial({ color: 0x003366, transparent: true, opacity: 0.7 });
+        const panelGeo = new THREE.BoxGeometry(0.35, 0.005, 0.08);
+        const panelL = new THREE.Mesh(panelGeo, panelMat);
+        panelL.position.set(-0.22, 0, 0);
+        issGroup.add(panelL);
+        const panelR = new THREE.Mesh(panelGeo, panelMat);
+        panelR.position.set(0.22, 0, 0);
+        issGroup.add(panelR);
+
+        // Orbit trail
+        const trailMaxPoints = 180;
+        const trailPoints = [];
+        const orbitTrail = new THREE.Line(
+            new THREE.BufferGeometry(),
+            new THREE.LineBasicMaterial({ color: 0x00e5ff, transparent: true, opacity: 0.15 })
+        );
+        scene.add(orbitTrail);
+        scene.add(issGroup);
+
+        // =============================================
+        // WEATHER MARKER (animated crosshair, not blob)
+        // =============================================
+        const weatherMarkerGroup = new THREE.Group();
+        weatherMarkerGroup.visible = false;
+
+        // Center dot
+        const mDot = new THREE.Mesh(
+            new THREE.SphereGeometry(0.03, 12, 12),
+            new THREE.MeshBasicMaterial({ color: 0x34d399 })
+        );
+        weatherMarkerGroup.add(mDot);
+
+        // Animated ring
+        const mRingGeo = new THREE.RingGeometry(0.06, 0.08, 32);
+        const mRingMat = new THREE.MeshBasicMaterial({ color: 0x34d399, transparent: true, opacity: 0.6, side: THREE.DoubleSide });
+        const mRing = new THREE.Mesh(mRingGeo, mRingMat);
+        weatherMarkerGroup.add(mRing);
+
+        // Outer pulse ring
+        const mPulseGeo = new THREE.RingGeometry(0.10, 0.11, 32);
+        const mPulseMat = new THREE.MeshBasicMaterial({ color: 0x34d399, transparent: true, opacity: 0.3, side: THREE.DoubleSide });
+        const mPulse = new THREE.Mesh(mPulseGeo, mPulseMat);
+        weatherMarkerGroup.add(mPulse);
+
+        scene.add(weatherMarkerGroup);
+
+        // =============================================
+        // LIGHTNING PARTICLE SYSTEM
+        // =============================================
+        const lightningFlashes = [];
+        const maxFlashes = 80;
+        const lightningGroup = new THREE.Group();
+        lightningGroup.visible = false;
+        scene.add(lightningGroup);
+
+        let ltSimInterval = null;
+        let ltStrikeCount = 0;
+
+        // Generate round sprite texture via canvas (no square artifacts)
+        function createCircleTexture(size, color, softEdge) {
+            const c = document.createElement('canvas');
+            c.width = c.height = size;
+            const ctx = c.getContext('2d');
+            const half = size / 2;
+            const grad = ctx.createRadialGradient(half, half, 0, half, half, half);
+            grad.addColorStop(0, color);
+            grad.addColorStop(softEdge || 0.3, color);
+            grad.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, size, size);
+            const tex = new THREE.CanvasTexture(c);
+            tex.needsUpdate = true;
+            return tex;
+        }
+
+        const ltFlashTex = createCircleTexture(64, 'rgba(255,255,200,1)', 0.15);
+        const ltGlowTex = createCircleTexture(128, 'rgba(255,220,100,0.8)', 0.1);
+
+        function createFlash(lat, lon) {
+            if (lightningFlashes.length >= maxFlashes) {
+                const old = lightningFlashes.shift();
+                lightningGroup.remove(old.s); lightningGroup.remove(old.g);
+                old.s.material.dispose(); old.g.material.dispose();
+            }
+            // Place above clouds (0.06) so they're visible
+            const pos = getCoord(lat, lon, earthRadius + 0.10);
+            const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: ltFlashTex, transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false }));
+            s.position.copy(pos); s.scale.set(0.15, 0.15, 1);
+            const g = new THREE.Sprite(new THREE.SpriteMaterial({ map: ltGlowTex, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }));
+            g.position.copy(pos); g.scale.set(0.5, 0.5, 1);
+            lightningGroup.add(s); lightningGroup.add(g);
+            lightningFlashes.push({ s, g, t: performance.now(), life: 300 + Math.random() * 400 });
+            ltStrikeCount++;
+        }
+
+        function updateFlashes() {
+            const now = performance.now();
+            for (let i = lightningFlashes.length - 1; i >= 0; i--) {
+                const f = lightningFlashes[i];
+                const p = (now - f.t) / f.life;
+                if (p >= 1) {
+                    lightningGroup.remove(f.s); lightningGroup.remove(f.g);
+                    f.s.material.dispose(); f.g.material.dispose();
+                    lightningFlashes.splice(i, 1);
+                    continue;
+                }
+                const fo = p < 0.15 ? p / 0.15 : Math.max(0, 1 - (p - 0.15) / 0.85);
+                f.s.material.opacity = fo;
+                f.s.scale.setScalar(0.15 + p * 0.3);
+                f.g.material.opacity = 0.6 * (1 - p);
+                f.g.scale.setScalar(0.5 + p * 1.0);
+            }
+        }
+
+        function startLightning() {
+            if (ltSimInterval) return;
+            ltStrikeCount = 0;
+            function strike() {
+                if (!moduleState.lightning) return;
+                createFlash((Math.random() - 0.5) * 120, (Math.random() - 0.5) * 360);
+                ltSimInterval = setTimeout(strike, 100 + Math.random() * 300);
+            }
+            strike();
+            setInterval(() => {
+                const el = document.getElementById('lightning-count');
+                if (el) el.textContent = `~${Math.round(ltStrikeCount / 2 * 60)} çarpma/dk`;
+                ltStrikeCount = 0;
+            }, 2000);
+        }
+
+        function stopLightning() {
+            if (ltSimInterval) { clearTimeout(ltSimInterval); ltSimInterval = null; }
+            lightningFlashes.forEach(f => {
+                lightningGroup.remove(f.s); lightningGroup.remove(f.g);
+                f.s.material.dispose(); f.g.material.dispose();
+            });
+            lightningFlashes.length = 0;
+        }
+
+        // =============================================
+        // WIND PARTICLES (Weather Module)
+        // =============================================
+        const windCount = 500;
+        const windGeo = new THREE.BufferGeometry();
+        const windPos = new Float32Array(windCount * 3);
+        const windVel = [];
+
+        for (let i = 0; i < windCount; i++) {
+            const la = (Math.random() - 0.5) * 180, lo = (Math.random() - 0.5) * 360;
+            const p = getCoord(la, lo, earthRadius + 0.08 + Math.random() * 0.04);
+            windPos[i * 3] = p.x; windPos[i * 3 + 1] = p.y; windPos[i * 3 + 2] = p.z;
+            windVel.push({ lat: la, lon: lo, spd: 0.002 + Math.random() * 0.003, dir: la > 0 ? 1 : -1, baseR: earthRadius + 0.08 + Math.random() * 0.04 });
+        }
+
+        windGeo.setAttribute('position', new THREE.BufferAttribute(windPos, 3));
+        const windMat = new THREE.PointsMaterial({ map: sharedCircleTex, color: 0x44aaff, size: 0.03, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false });
+        const windParts = new THREE.Points(windGeo, windMat);
+        windParts.visible = false;
+        earth.add(windParts);
+
+        function updateWind() {
+            const p = windGeo.attributes.position.array;
+            for (let i = 0; i < windCount; i++) {
+                const v = windVel[i];
+                v.lon += v.spd * 5 * v.dir;
+                if (v.lon > 180) v.lon -= 360;
+                if (v.lon < -180) v.lon += 360;
+                // Fixed: use stable per-particle radius instead of Math.random() each frame
+                const c = getCoord(v.lat, v.lon, v.baseR);
+                p[i * 3] = c.x; p[i * 3 + 1] = c.y; p[i * 3 + 2] = c.z;
+            }
+            windGeo.attributes.position.needsUpdate = true;
+        }
+
+        // =============================================
+        // MODULE ACTIVATION
+        // =============================================
+        function activateWeatherModule() {
+            windParts.visible = true;
+            document.getElementById('forecast-section').classList.remove('hidden');
+        }
+        function deactivateWeatherModule() {
+            windParts.visible = false;
+            document.getElementById('forecast-section').classList.add('hidden');
+        }
+
+        const defMaxDist = 30, telMaxDist = 250;
+        function activateTelescopeModule() {
+            controls.maxDistance = telMaxDist;
+            brightStarsGroup.visible = true;
+            constellationGroup.visible = true;
+            starMat.size = 0.8; starMat.opacity = 0.85; starMat.needsUpdate = true;
+            document.getElementById('telescope-indicator').classList.add('visible');
+            setTimeout(() => document.getElementById('telescope-indicator').classList.remove('visible'), 3000);
+        }
+        function deactivateTelescopeModule() {
+            controls.maxDistance = defMaxDist;
+            if (camera.position.length() > defMaxDist) camera.position.setLength(defMaxDist - 1);
+            brightStarsGroup.visible = false;
+            constellationGroup.visible = false;
+            starMat.size = 0.5; starMat.opacity = 0.7; starMat.needsUpdate = true;
+        }
+
+        const defAmbient = 0.15, ltAmbient = 0.04;
+        function activateLightningModule() {
+            lightningGroup.visible = true;
+            ambientLight.intensity = ltAmbient;
+            startLightning();
+            document.getElementById('lightning-status').classList.add('visible');
+        }
+        function deactivateLightningModule() {
+            stopLightning();
+            lightningGroup.visible = false;
+            ambientLight.intensity = defAmbient;
+            document.getElementById('lightning-status').classList.remove('visible');
+        }
+
+        // =============================================
+        // STORM TRACKER MODULE (Vortex Particle System)
+        // =============================================
+        const stormGroup = new THREE.Group();
+        stormGroup.visible = false;
+        scene.add(stormGroup);
+
+        // Simulated active storms
+        const stormData = [
+            { name: "Kasırga Alpha", lat: 25.7, lon: -71.3, cat: 3, color: 0xff4444 },
+            { name: "Tayfun Beta", lat: 18.4, lon: 132.8, cat: 4, color: 0xff6622 },
+            { name: "Fırtına Gamma", lat: -15.2, lon: 55.3, cat: 2, color: 0xffaa00 },
+        ];
+        const stormSystems = [];
+
+        function createStormVortex(storm) {
+            const group = new THREE.Group();
+            const center = getCoord(storm.lat, storm.lon, earthRadius + 0.08);
+            group.position.copy(center);
+            group.lookAt(0, 0, 0);
+            // Flip so particles face outward
+            group.rotateX(Math.PI);
+
+            const particleCount = 60;
+            const sGeo = new THREE.BufferGeometry();
+            const sPos = new Float32Array(particleCount * 3);
+            const sColors = new Float32Array(particleCount * 3);
+            const particles = [];
+
+            const col = new THREE.Color(storm.color);
+
+            for (let i = 0; i < particleCount; i++) {
+                const angle = (i / particleCount) * Math.PI * 6; // 3 full spirals
+                const radius = 0.02 + (i / particleCount) * 0.35;
+                const x = Math.cos(angle) * radius;
+                const y = Math.sin(angle) * radius;
+                const z = (Math.random() - 0.5) * 0.04;
+                sPos[i * 3] = x;
+                sPos[i * 3 + 1] = y;
+                sPos[i * 3 + 2] = z;
+                const fade = 1 - (i / particleCount) * 0.6;
+                sColors[i * 3] = col.r * fade;
+                sColors[i * 3 + 1] = col.g * fade;
+                sColors[i * 3 + 2] = col.b * fade;
+                particles.push({ angle, baseRadius: radius, speed: 0.02 + Math.random() * 0.015 });
+            }
+
+            sGeo.setAttribute('position', new THREE.BufferAttribute(sPos, 3));
+            sGeo.setAttribute('color', new THREE.BufferAttribute(sColors, 3));
+
+            const sMat = new THREE.PointsMaterial({
+                map: sharedCircleTex,
+                size: 0.06,
+                transparent: true,
+                opacity: 0.7,
+                vertexColors: true,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false,
+                sizeAttenuation: true
+            });
+
+            const points = new THREE.Points(sGeo, sMat);
+            group.add(points);
+
+            // Eye of the storm (center glow)
+            const eyeSprite = new THREE.Sprite(new THREE.SpriteMaterial({
+                map: sharedGlowTex,
+                color: storm.color,
+                transparent: true,
+                opacity: 0.5,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            }));
+            eyeSprite.scale.set(0.15, 0.15, 1);
+            group.add(eyeSprite);
+
+            // Category label sprite (optional visual)
+            const outerRing = new THREE.Sprite(new THREE.SpriteMaterial({
+                map: sharedGlowTex,
+                color: storm.color,
+                transparent: true,
+                opacity: 0.15,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            }));
+            outerRing.scale.set(0.8, 0.8, 1);
+            group.add(outerRing);
+
+            stormGroup.add(group);
+            return { group, geo: sGeo, particles, storm };
+        }
+
+        function updateStorms() {
+            stormSystems.forEach(sys => {
+                const positions = sys.geo.attributes.position.array;
+                for (let i = 0; i < sys.particles.length; i++) {
+                    const p = sys.particles[i];
+                    p.angle += p.speed;
+                    const x = Math.cos(p.angle) * p.baseRadius;
+                    const y = Math.sin(p.angle) * p.baseRadius;
+                    positions[i * 3] = x;
+                    positions[i * 3 + 1] = y;
+                }
+                sys.geo.attributes.position.needsUpdate = true;
+                // Rotate the vortex group slowly
+                sys.group.children[0].rotation.z += 0.008;
+            });
+        }
+
+        function activateStormModule() {
+            stormGroup.visible = true;
+            if (stormSystems.length === 0) {
+                stormData.forEach(s => stormSystems.push(createStormVortex(s)));
+            }
+        }
+        function deactivateStormModule() {
+            stormGroup.visible = false;
+        }
+
+        // =============================================
+        // EARTHQUAKE MODULE (USGS)
+        // =============================================
+        const earthquakeGroup = new THREE.Group();
+        earthquakeGroup.visible = false;
+        scene.add(earthquakeGroup);
+        let earthquakeData = [];
+        let eqFetchInterval = null;
+
+        async function fetchEarthquakes() {
+            try {
+                const res = await fetch('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson');
+                if (!res.ok) throw new Error('USGS error');
+                const data = await res.json();
+                // Clear old markers
+                while (earthquakeGroup.children.length > 0) {
+                    const c = earthquakeGroup.children[0];
+                    earthquakeGroup.remove(c);
+                    if (c.material) c.material.dispose();
+                }
+                earthquakeData = data.features || [];
+                const countEl = document.getElementById('earthquake-count');
+                if (countEl) countEl.textContent = `${earthquakeData.length} deprem (M2.5+)`;
+
+                earthquakeData.forEach(eq => {
+                    const [lon, lat, depth] = eq.geometry.coordinates;
+                    const mag = eq.properties.mag || 3;
+                    const pos = getCoord(lat, lon, earthRadius + 0.08);
+
+                    // Size based on magnitude
+                    const size = 0.04 + (mag / 10) * 0.15;
+                    const color = mag >= 6 ? 0xff2222 : mag >= 4.5 ? 0xff8800 : 0xffcc00;
+
+                    const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+                        map: sharedCircleTex, color: color,
+                        transparent: true, opacity: 0.85,
+                        blending: THREE.AdditiveBlending, depthWrite: false
+                    }));
+                    sp.position.copy(pos);
+                    sp.scale.set(size, size, 1);
+                    sp.userData = { mag, name: eq.properties.place, time: eq.properties.time };
+                    earthquakeGroup.add(sp);
+
+                    // Glow ring
+                    const gl = new THREE.Sprite(new THREE.SpriteMaterial({
+                        map: sharedGlowTex, color: color,
+                        transparent: true, opacity: 0.25,
+                        blending: THREE.AdditiveBlending, depthWrite: false
+                    }));
+                    gl.position.copy(pos);
+                    gl.scale.set(size * 3, size * 3, 1);
+                    earthquakeGroup.add(gl);
+                });
+            } catch (err) {
+                console.error('Earthquake fetch error:', err);
+            }
+        }
+
+        function activateEarthquakeModule() {
+            earthquakeGroup.visible = true;
+            document.getElementById('earthquake-status').classList.add('visible');
+            fetchEarthquakes();
+            eqFetchInterval = setInterval(fetchEarthquakes, 5 * 60 * 1000); // refresh every 5 min
+        }
+        function deactivateEarthquakeModule() {
+            earthquakeGroup.visible = false;
+            document.getElementById('earthquake-status').classList.remove('visible');
+            if (eqFetchInterval) { clearInterval(eqFetchInterval); eqFetchInterval = null; }
+        }
+
+        // =============================================
+        // AURORA MODULE (NOAA OVATION)
+        // =============================================
+        const auroraGroup = new THREE.Group();
+        auroraGroup.visible = false;
+        scene.add(auroraGroup);
+        let auroraParticles = null;
+
+        async function fetchAurora() {
+            try {
+                // Use NOAA Kp-index as a simpler proxy (OVATION requires processing)
+                const res = await fetch('https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json');
+                if (!res.ok) throw new Error('NOAA error');
+                const data = await res.json();
+                // Last entry has current Kp
+                const latest = data[data.length - 1];
+                const kp = parseFloat(latest[1]) || 0;
+                const levelEl = document.getElementById('aurora-level');
+                if (levelEl) {
+                    const desc = kp >= 7 ? 'Çok Güçlü' : kp >= 5 ? 'Güçlü' : kp >= 3 ? 'Orta' : 'Zayıf';
+                    levelEl.textContent = `Kp ${kp.toFixed(1)} — ${desc}`;
+                }
+
+                // Create aurora particle bands near poles
+                if (auroraParticles) {
+                    auroraGroup.remove(auroraParticles);
+                    auroraParticles.geometry.dispose();
+                    auroraParticles.material.dispose();
+                }
+
+                const count = Math.floor(200 + kp * 80);
+                const aGeo = new THREE.BufferGeometry();
+                const aPos = new Float32Array(count * 3);
+                const aColors = new Float32Array(count * 3);
+
+                for (let i = 0; i < count; i++) {
+                    // Aurora bands: near 60-75° latitude (both poles)
+                    const latBase = 62 + Math.random() * 13;
+                    const lat = Math.random() > 0.5 ? latBase : -latBase;
+                    const lon = Math.random() * 360 - 180;
+                    const alt = earthRadius + 0.12 + Math.random() * 0.08;
+                    const p = getCoord(lat, lon, alt);
+                    aPos[i * 3] = p.x; aPos[i * 3 + 1] = p.y; aPos[i * 3 + 2] = p.z;
+
+                    // Green-blue aurora colors
+                    const g = 0.6 + Math.random() * 0.4;
+                    const b = Math.random() * 0.3;
+                    aColors[i * 3] = 0.1; aColors[i * 3 + 1] = g; aColors[i * 3 + 2] = 0.3 + b;
+                }
+
+                aGeo.setAttribute('position', new THREE.BufferAttribute(aPos, 3));
+                aGeo.setAttribute('color', new THREE.BufferAttribute(aColors, 3));
+
+                const aMat = new THREE.PointsMaterial({
+                    map: sharedGlowTex, size: 0.15,
+                    transparent: true, opacity: 0.4 + kp * 0.05,
+                    vertexColors: true,
+                    blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true
+                });
+
+                auroraParticles = new THREE.Points(aGeo, aMat);
+                auroraGroup.add(auroraParticles);
+            } catch (err) {
+                console.error('Aurora fetch error:', err);
+                const levelEl = document.getElementById('aurora-level');
+                if (levelEl) levelEl.textContent = 'Veri alınamadı';
+            }
+        }
+
+        let auroraFetchInterval = null;
+        function activateAuroraModule() {
+            auroraGroup.visible = true;
+            document.getElementById('aurora-status').classList.add('visible');
+            fetchAurora();
+            auroraFetchInterval = setInterval(fetchAurora, 10 * 60 * 1000);
+        }
+        function deactivateAuroraModule() {
+            auroraGroup.visible = false;
+            document.getElementById('aurora-status').classList.remove('visible');
+            if (auroraFetchInterval) { clearInterval(auroraFetchInterval); auroraFetchInterval = null; }
+        }
+
+        // =============================================
+        // LIGHTING & EPHEMERIS
+        // =============================================
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.15);
+        scene.add(ambientLight);
+        const sunLight = new THREE.DirectionalLight(0xffffff, 1.6);
+        scene.add(sunLight);
+
+        // Subtle fill from opposite side
+        const fillLight = new THREE.DirectionalLight(0x334466, 0.15);
+        fillLight.position.set(-50, -10, -50);
+        scene.add(fillLight);
+
+        function getCoord(lat, lng, r) {
+            const phi = (90 - lat) * Math.PI / 180;
+            const theta = (lng + 180) * Math.PI / 180;
+            return new THREE.Vector3(-(r * Math.sin(phi) * Math.cos(theta)), r * Math.cos(phi), r * Math.sin(phi) * Math.sin(theta));
+        }
+
+        let sunDeclination = 0, sunLongitude = 0;
+
+        function updateEphemeris() {
+            const now = new Date();
+            // Accurate solar position using Julian Date
+            const JD = (now.getTime() / 86400000) + 2440587.5;
+            const n = JD - 2451545.0; // days since J2000.0
+            const L = (280.460 + 0.9856474 * n) % 360; // mean longitude
+            const g = ((357.528 + 0.9856003 * n) % 360) * Math.PI / 180; // mean anomaly (rad)
+            const lambda = L + 1.915 * Math.sin(g) + 0.020 * Math.sin(2 * g); // ecliptic longitude
+            const eps = 23.439 - 0.0000004 * n; // obliquity
+            const lambdaRad = lambda * Math.PI / 180;
+            const epsRad = eps * Math.PI / 180;
+            sunDeclination = Math.asin(Math.sin(epsRad) * Math.sin(lambdaRad)) * 180 / Math.PI;
+            // Sub-solar longitude from Greenwich Mean Sidereal Time
+            const GMST = (280.46061837 + 360.98564736629 * n) % 360;
+            const RA = Math.atan2(Math.cos(epsRad) * Math.sin(lambdaRad), Math.cos(lambdaRad)) * 180 / Math.PI;
+            sunLongitude = ((RA - GMST + 540) % 360) - 180;
+
+            document.getElementById('ui-sun').innerText = `${sunDeclination.toFixed(1)}°N, ${sunLongitude.toFixed(1)}°E`;
+
+            const sunPos = getCoord(sunDeclination, sunLongitude, 100);
+            sunLight.position.copy(sunPos);
+
+            // Update shader sun direction
+            const sunDir = sunPos.clone().normalize();
+            earthShaderMat.uniforms.sunDirection.value.copy(sunDir);
+            atmosMat.uniforms.sunDirection.value.copy(sunDir);
+
+            // UTC time display
+            const utc = now.toISOString().substr(11, 8);
+            const timeEl = document.getElementById('ui-time');
+            if (timeEl) timeEl.innerText = utc + ' UTC';
+
+            // Day/Night widget update
+            const dnWidget = document.getElementById('daynight-widget');
+            if (dnWidget) {
+                // Determine ISS day/night from dot product of ISS position with sun direction
+                const issNorm = getCoord(curLat, curLon, 1).normalize();
+                const isISSDay = issNorm.dot(sunDir) > 0;
+                document.getElementById('dn-icon').textContent = isISSDay ? '☀️' : '🌙';
+                const lbl = document.getElementById('dn-label');
+                lbl.textContent = isISSDay ? 'ISS GÜNDÜZDE' : 'ISS GECEDE';
+                lbl.className = 'text-[11px] font-mono font-medium tracking-wider ' +
+                    (isISSDay ? 'text-yellow-300' : 'text-indigo-300');
+                document.getElementById('dn-utc').textContent = utc + ' UTC';
+                document.getElementById('dn-sub').textContent =
+                    `${sunDeclination.toFixed(1)}°N  ${sunLongitude.toFixed(1)}°E`;
+            }
+        }
+
+        // =============================================
+        // ISS DATA
+        // =============================================
+        let curLat = 0, curLon = 0, tgtLat = null, tgtLon = null;
+        let orbitCount = 0;
+        let lastLon = null;
+
+        async function fetchISS() {
+            try {
+                const r = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                const d = await r.json();
+                tgtLat = d.latitude; tgtLon = d.longitude;
+                if (curLat === 0 && curLon === 0) { curLat = tgtLat; curLon = tgtLon; }
+
+                // Orbit counter (crude: detect longitude wrap)
+                if (lastLon !== null && lastLon > 100 && d.longitude < -100) orbitCount++;
+                lastLon = d.longitude;
+
+                const set = (id, v) => { const e = document.getElementById(id); if (e) e.innerText = v; };
+                set('ui-lat', d.latitude.toFixed(3) + '°');
+                set('ui-lon', d.longitude.toFixed(3) + '°');
+                set('ui-alt', Math.round(d.altitude) + ' km');
+                set('ui-vel', Math.round(d.velocity).toLocaleString() + ' km/h');
+                set('ui-orbit', `#${orbitCount} bugün`);
+
+                const visEl = document.getElementById('ui-vis');
+                if (visEl) {
+                    visEl.innerText = d.visibility === 'day' ? 'GÜNDÜZ ☀' : 'GECE 🌙';
+                    visEl.className = 'hud-value ' + (d.visibility === 'day' ? 'text-yellow-400' : 'text-indigo-400');
+                }
+            } catch (e) {
+                console.warn('ISS fetch error:', e.message);
+            }
+        }
+        fetchISS();
+        setInterval(fetchISS, 5000);
+
+        // =============================================
+        // CLICK → WEATHER + 7-DAY FORECAST
+        // =============================================
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        async function fetch7Day(lat, lon) {
+            try {
+                const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=auto&forecast_days=7`);
+                if (!r.ok) return null;
+                return (await r.json()).daily;
+            } catch { return null; }
+        }
+
+        function renderForecast(daily) {
+            const el = document.getElementById('forecast-list');
+            if (!el || !daily) return;
+            const days = ['Pz', 'Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct'];
+            let h = '';
+            for (let i = 0; i < Math.min(7, daily.time.length); i++) {
+                const dn = days[new Date(daily.time[i]).getDay()];
+                const mx = daily.temperature_2m_max[i], mn = daily.temperature_2m_min[i];
+                const pr = daily.precipitation_sum[i];
+                const mxW = Math.max(5, Math.min(100, ((mx + 10) / 60) * 100));
+                const mnW = Math.max(5, Math.min(100, ((mn + 10) / 60) * 100));
+                h += `<div class="flex items-center gap-2 text-[10px]">
+                    <span class="text-white/30 w-5 text-center font-mono">${dn}</span>
+                    <span class="text-blue-300 w-8 text-right font-mono">${Math.round(mn)}°</span>
+                    <div class="flex-1 h-[3px] rounded-full bg-white/[0.04] relative overflow-hidden">
+                        <div class="absolute h-full rounded-full" style="left:${mnW}%; width:${mxW - mnW}%; background: linear-gradient(90deg, #3b82f6, #ef4444);"></div>
+                    </div>
+                    <span class="text-red-300 w-8 font-mono">${Math.round(mx)}°</span>
+                    <span class="w-4 text-[9px]">${pr > 0 ? '💧' : ''}</span>
+                </div>`;
+            }
+            el.innerHTML = h;
+        }
+
+        // =============================================
+        // CAMERA SMOOTH ANIMATION
+        // =============================================
+        let camAnimState = null;
+
+        function animateCameraTo(targetPos) {
+            camAnimState = {
+                start: camera.position.clone(),
+                target: targetPos.clone(),
+                elapsed: 0,
+                duration: 1.4,
+            };
+            controls.enabled = false;
+        }
+
+        function tickCameraAnim(dt) {
+            if (!camAnimState) return;
+            camAnimState.elapsed += dt;
+            const t = Math.min(1, camAnimState.elapsed / camAnimState.duration);
+            // Ease-in-out cubic
+            const ease = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+            camera.position.lerpVectors(camAnimState.start, camAnimState.target, ease);
+            // Keep camera looking at globe center throughout the fly
+            camera.lookAt(controls.target);
+            if (t >= 1) {
+                controls.enabled = true;
+                // Resync OrbitControls internal state with new camera position
+                controls.update();
+                camAnimState = null;
+            }
+        }
+
+        // =============================================
+        // SHARED WEATHER DISPLAY (Globe click + City search)
+        // =============================================
+        async function showWeatherAt(lat, lon, hitPoint) {
+            // Place marker
+            const mPos = hitPoint
+                ? hitPoint.clone().multiplyScalar(1.015)
+                : getCoord(lat, lon, earthRadius * 1.015);
+            weatherMarkerGroup.position.copy(mPos);
+            weatherMarkerGroup.lookAt(mPos.clone().multiplyScalar(2));
+            weatherMarkerGroup.visible = true;
+
+            const panel = document.getElementById('weather-panel');
+            panel.classList.remove('hidden');
+            const content = document.getElementById('weather-content');
+            content.classList.add('hidden');
+            content.style.maxHeight = '0px';
+            document.getElementById('wx-icon').innerText = '+';
+            document.getElementById('weather-loading').classList.remove('hidden');
+
+            try {
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m,wind_gusts_10m&daily=sunrise,sunset&timezone=auto&forecast_days=1`;
+                const res = await fetch(url);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+
+                let locName = 'Okyanus / Tanımsız';
+                try {
+                    const gR = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=tr`);
+                    const gD = await gR.json();
+                    const location = gD.principalSubdivision || gD.city || gD.countryName;
+                    if (location) locName = location + (gD.countryCode ? `, ${gD.countryCode}` : '');
+                } catch { }
+
+                if (data.current) {
+                    const s = (id, v) => { const e = document.getElementById(id); if (e) { e.innerText = v; } };
+                    s('wx-location', locName);
+                    s('wx-coord', `${lat.toFixed(2)}°, ${lon.toFixed(2)}°`);
+                    s('wx-temp', data.current.temperature_2m);
+                    s('wx-hum', '%' + data.current.relative_humidity_2m);
+                    s('wx-precip', data.current.precipitation + ' mm');
+                    s('wx-wind', data.current.wind_speed_10m);
+                    s('wx-gust', data.current.wind_gusts_10m || data.current.wind_speed_10m);
+
+                    // Local time from timezone
+                    const tz = data.timezone || 'UTC';
+                    const utcOff = data.utc_offset_seconds || 0;
+                    const offHours = Math.floor(Math.abs(utcOff) / 3600);
+                    const offMins = Math.floor((Math.abs(utcOff) % 3600) / 60);
+                    const offSign = utcOff >= 0 ? '+' : '-';
+                    const offStr = `UTC${offSign}${offHours}${offMins > 0 ? ':' + String(offMins).padStart(2, '0') : ''}`;
+                    try {
+                        const localTime = new Date().toLocaleTimeString('tr-TR', { timeZone: tz, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                        s('wx-localtime', `${localTime} (${offStr})`);
+                    } catch {
+                        const now = new Date();
+                        const localMs = now.getTime() + (utcOff * 1000) + (now.getTimezoneOffset() * 60000);
+                        const localDate = new Date(localMs);
+                        s('wx-localtime', `${localDate.toTimeString().substr(0, 8)} (${offStr})`);
+                    }
+                    s('wx-timezone', tz.replace(/_/g, ' '));
+
+                    // Sunrise/Sunset
+                    if (data.daily) {
+                        const sunrise = data.daily.sunrise?.[0];
+                        const sunset = data.daily.sunset?.[0];
+                        s('wx-sunrise', sunrise ? sunrise.split('T')[1] : '--:--');
+                        s('wx-sunset', sunset ? sunset.split('T')[1] : '--:--');
+                    }
+
+                    document.getElementById('weather-loading').classList.add('hidden');
+                    content.classList.remove('hidden');
+                    setTimeout(() => {
+                        content.style.maxHeight = '600px';
+                        content.style.opacity = '1';
+                        content.style.marginTop = '0.75rem';
+                        document.getElementById('wx-icon').innerText = '−';
+                    }, 10);
+
+                    if (moduleState.weather) {
+                        const daily = await fetch7Day(lat, lon);
+                        if (daily) renderForecast(daily);
+                    }
+                }
+            } catch (err) {
+                console.error('Weather error:', err.message);
+                document.getElementById('weather-loading').classList.add('hidden');
+                const s = (id, v) => { const el = document.getElementById(id); if (el) el.innerText = v; };
+                s('wx-location', 'Veri getirilemedi');
+                s('wx-coord', `${lat.toFixed(2)}°, ${lon.toFixed(2)}°`);
+                s('wx-temp', '--'); s('wx-hum', '--'); s('wx-precip', '--'); s('wx-wind', '--'); s('wx-gust', '--');
+                s('wx-localtime', '--'); s('wx-timezone', '--'); s('wx-sunrise', '--'); s('wx-sunset', '--');
+                content.classList.remove('hidden');
+                setTimeout(() => {
+                    content.style.maxHeight = '600px';
+                    content.style.opacity = '1';
+                    content.style.marginTop = '0.75rem';
+                    document.getElementById('wx-icon').innerText = '−';
+                }, 10);
+            }
+        }
+
+        // =============================================
+        // CITY SEARCH + CAMERA FOCUS
+        // =============================================
+        async function searchCityAndFocus(selectedResult) {
+            const inp = document.getElementById('city-search-input');
+            const status = document.getElementById('city-search-status');
+            const suggestions = document.getElementById('search-suggestions');
+            if (suggestions) { suggestions.classList.remove('visible'); suggestions.innerHTML = ''; }
+
+            let lat, lon, name;
+
+            if (selectedResult) {
+                lat = selectedResult.latitude;
+                lon = selectedResult.longitude;
+                name = selectedResult.name + (selectedResult.country_code ? `, ${selectedResult.country_code}` : '');
+            } else {
+                if (!inp || !inp.value.trim()) return;
+                const cityName = inp.value.trim();
+                if (status) { status.textContent = 'Aranıyor...'; status.classList.remove('hidden'); }
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+
+                    const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityName)}&count=5&language=tr&format=json`;
+                    const res = await fetch(url, {
+                        method: 'GET',
+                        mode: 'cors',
+                        credentials: 'omit',
+                        signal: controller.signal
+                    });
+                    clearTimeout(timeoutId);
+
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    const data = await res.json();
+                    if (!data.results || data.results.length === 0) {
+                        if (status) status.textContent = '✗ Şehir bulunamadı';
+                        return;
+                    }
+                    // Use first result directly
+                    const r = data.results[0];
+                    lat = r.latitude; lon = r.longitude;
+                    name = r.name + (r.country_code ? `, ${r.country_code}` : '');
+                } catch (err) {
+                    if (err.name === 'AbortError') {
+                        if (status) status.textContent = '✗ Zaman aşımı';
+                    } else {
+                        if (status) status.textContent = '✗ Bağlantı hatası';
+                    }
+                    console.error('City search error:', err);
+                    return;
+                }
+            }
+
+            if (status) { status.textContent = `✓ ${name}`; status.classList.remove('hidden'); }
+
+            // Rotate globe so the location faces the camera
+            const surfacePoint = getCoord(lat, lon, earthRadius);
+            controls.target.set(0, 0, 0);
+
+            // Position camera to look at the target location from the correct angle
+            const camDist = 9;
+            const camTarget = surfacePoint.clone().normalize().multiplyScalar(camDist);
+            animateCameraTo(camTarget);
+
+            // Show weather after camera starts moving
+            setTimeout(() => showWeatherAt(lat, lon, null), 500);
+
+            if (inp) inp.value = '';
+            setTimeout(() => { if (status) { status.classList.add('hidden'); } }, 3500);
+        }
+
+        // =============================================
+        // LIVE SEARCH SUGGESTIONS
+        // =============================================
+        let searchDebounce = null;
+        function onSearchInput(value) {
+            clearTimeout(searchDebounce);
+            const suggestions = document.getElementById('search-suggestions');
+            if (!value || value.trim().length < 2) {
+                if (suggestions) { suggestions.classList.remove('visible'); suggestions.innerHTML = ''; }
+                return;
+            }
+            searchDebounce = setTimeout(async () => {
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+                    const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(value.trim())}&count=5&language=tr&format=json`;
+                    const res = await fetch(url, {
+                        method: 'GET',
+                        mode: 'cors',
+                        credentials: 'omit',
+                        signal: controller.signal
+                    });
+                    clearTimeout(timeoutId);
+                    if (!res.ok) return;
+                    const data = await res.json();
+                    if (!data.results || data.results.length === 0) {
+                        if (suggestions) { suggestions.classList.remove('visible'); suggestions.innerHTML = ''; }
+                        return;
+                    }
+                    let html = '';
+                    data.results.forEach(r => {
+                        const country = r.country || '';
+                        const admin = r.admin1 || '';
+                        const extra = [admin, country].filter(Boolean).join(', ');
+                        html += `<div class="search-item" onclick='searchCityAndFocus(${JSON.stringify({ latitude: r.latitude, longitude: r.longitude, name: r.name, country_code: r.country_code })})'>
+                            ${r.name}<span class="search-country">${extra}</span>
+                        </div>`;
+                    });
+                    if (suggestions) {
+                        suggestions.innerHTML = html;
+                        suggestions.classList.add('visible');
+                    }
+                } catch (err) {
+                    console.error('Search suggestions error:', err);
+                }
+            }, 300);
+        }
+
+        // =============================================
+        // GLOBE CLICK → WEATHER
+        // =============================================
+        window.addEventListener('pointerdown', async (event) => {
+            if (event.target.closest('.glass') || event.target.closest('.glass-elevated') || event.target.closest('button') || event.target.closest('#modules-bar')) return;
+
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+
+            const hits = raycaster.intersectObject(earth);
+            if (hits.length > 0) {
+                const hit = hits[0];
+                const lon = (hit.uv.x * 360) - 180;
+                const lat = (hit.uv.y * 180) - 90;
+                await showWeatherAt(lat, lon, hit.point);
+            }
+        });
+
+        // =============================================
+        // ANIMATION LOOP
+        // =============================================
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        let markerPulseTime = 0;
+        let lastFrameTime = performance.now();
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Delta time (seconds)
+            const now = performance.now();
+            const dt = Math.min((now - lastFrameTime) / 1000, 0.1);
+            lastFrameTime = now;
+
+            tickCameraAnim(dt);
+            updateEphemeris();
+
+            // ISS interpolation
+            if (tgtLat !== null && tgtLon !== null) {
+                curLat += (tgtLat - curLat) * 0.05;
+                let ld = tgtLon - curLon;
+                if (ld > 180) curLon += 360;
+                if (ld < -180) curLon -= 360;
+                curLon += (tgtLon - curLon) * 0.05;
+
+                const v = getCoord(curLat, curLon, earthRadius + 0.35);
+                issGroup.position.copy(v);
+                issGroup.lookAt(0, 0, 0);
+
+                if (trailPoints.length === 0 || trailPoints[trailPoints.length - 1].distanceTo(v) > 0.05) {
+                    trailPoints.push(v.clone());
+                    if (trailPoints.length > trailMaxPoints) trailPoints.shift();
+                    orbitTrail.geometry.setFromPoints(trailPoints);
+                }
+            }
+
+            clouds.rotation.y += 0.0003;
+
+            // Weather marker pulse
+            if (weatherMarkerGroup.visible) {
+                markerPulseTime += 0.03;
+                const ps = 1 + Math.sin(markerPulseTime * 3) * 0.15;
+                mRing.scale.set(ps, ps, ps);
+                mRingMat.opacity = 0.4 + Math.sin(markerPulseTime * 3) * 0.2;
+
+                const outerPs = 1 + (markerPulseTime % 2) * 0.8;
+                const outerOp = Math.max(0, 0.3 - (markerPulseTime % 2) * 0.15);
+                mPulse.scale.set(outerPs, outerPs, outerPs);
+                mPulseMat.opacity = outerOp;
+            }
+
+            // Module animations
+            if (moduleState.weather && windParts.visible) updateWind();
+            if (moduleState.lightning) updateFlashes();
+            if (moduleState.storm) updateStorms();
+
+            if (moduleState.telescope) {
+                const dist = camera.position.length();
+                const f = Math.min(1, (dist - 10) / 50);
+                // Fixed: update ALL sprites (core + glow) — not just those with userData.name
+                for (let i = 0; i < brightStarsGroup.children.length; i += 2) {
+                    const core = brightStarsGroup.children[i];
+                    const glow = brightStarsGroup.children[i + 1];
+                    if (core && core.material) core.material.opacity = 0.5 + f * 0.5;
+                    if (glow && glow.material) glow.material.opacity = 0.15 + f * 0.35;
+                }
+                constellationGroup.children.forEach(l => {
+                    if (l.material) l.material.opacity = 0.08 + f * 0.3;
+                });
+            }
+
+            // Atmosphere view vector
+            atmosMat.uniforms.viewVector.value.copy(camera.position);
+
+            controls.update();
+            composer.render();
+        }
+        animate();
+    </script>
+</body>
+
+</html>
