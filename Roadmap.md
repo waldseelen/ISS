@@ -18,16 +18,16 @@ Yakında → Zoom Earth gibi 2D uydu harita + katman sistemi
 
 ## ✅ Faz 0 — Temel Altyapı (Tamamlandı)
 
-- [ ] Three.js 3D dünya globu
-- [ ] Bloom + atmosfer GLSL shader
-- [ ] Dönen bulut katmanı
-- [ ] Yıldız arka planı (procedural)
-- [ ] OrbitControls (döndür, zoom, pan)
-- [ ] Katman toggle sistemi
-- [ ] Şehir arama (Open-Meteo Geocoding)
-- [ ] Globe'a tıklayınca hava durumu
-- [ ] Kamera uçuş animasyonu
-- [ ] Next.js + TypeScript + Tailwind
+- [x] Three.js 3D dünya globu
+- [x] Bloom + atmosfer GLSL shader
+- [x] Dönen bulut katmanı
+- [x] Yıldız arka planı (procedural)
+- [x] OrbitControls (döndür, zoom, pan)
+- [x] Katman toggle sistemi
+- [x] Şehir arama (Open-Meteo Geocoding)
+- [x] Globe'a tıklayınca hava durumu
+- [x] Kamera uçuş animasyonu
+- [x] Next.js + TypeScript + Tailwind
 
 ---
 
@@ -36,26 +36,26 @@ Yakında → Zoom Earth gibi 2D uydu harita + katman sistemi
 > Projenin omurgası. Her şey buna oturur.
 
 ### 1A — 3D Dış Bakış (Google Earth / ISS Tracker stili)
-- [ ] Uzay perspektifinden tam globe görünümü (mevcut)
-- [ ] Zoom out → yıldızlar, atmosfer glow aktif
-- [ ] ISS yörüngesi görünür
-- [ ] Gece/gündüz çizgisi görünür
-- [ ] Bulut katmanı döner
+- [x] Uzay perspektifinden tam globe görünümü (mevcut)
+- [x] Zoom out → yıldızlar, atmosfer glow aktif
+- [x] ISS yörüngesi görünür
+- [x] Gece/gündüz çizgisi görünür
+- [x] Bulut katmanı döner
 
 ### 1B — 2D Uydu Modu (Zoom Earth stili)
-- [ ] Zoom in → dünya yüzeyi tile bazlı haritaya geçer
-- [ ] ESRI World Imagery uydu tile (key yok)
+- [x] Zoom in → dünya yüzeyi tile bazlı haritaya geçer
+- [x] ESRI World Imagery uydu tile (key yok)
   ```
   https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}
   ```
-- [ ] OpenStreetMap sokak haritası modu
-- [ ] OpenTopoMap terrain modu
+- [x] OpenStreetMap sokak haritası modu
+- [x] OpenTopoMap terrain modu
 - [ ] Stadia dark harita modu
 
 ### 1C — Geçiş Sistemi
-- [ ] Zoom seviyesine göre otomatik mod geçişi
+- [x] Zoom seviyesine göre otomatik mod geçişi
 - [ ] 3D → 2D arası yumuşak blend animasyonu
-- [ ] Manuel mod butonu (toolbar)
+- [x] Manuel mod butonu (toolbar)
 - [ ] Zoom level göstergesi (HUD)
 
 **Kaynaklar:** Three.js, Leaflet.js, ESRI CDN, OSM tiles (key yok)
@@ -66,11 +66,11 @@ Yakında → Zoom Earth gibi 2D uydu harita + katman sistemi
 
 > Zoom Earth'in kalbi — gerçek zamanlı uydu geçişleri
 
-- [ ] NASA GIBS WMTS entegrasyonu (key yok)
-- [ ] Bugünün uydu görüntüsü (Terra/Aqua MODIS)
+- [x] NASA GIBS WMTS entegrasyonu (key yok)
+- [x] Bugünün uydu görüntüsü (Terra/Aqua MODIS)
 - [ ] Tarihsel uydu görüntüsü + tarih seçici slider
 - [ ] True color / false color toggle
-- [ ] Gece ışıkları katmanı (NASA Black Marble)
+- [x] Gece ışıkları katmanı (NASA Black Marble)
 - [ ] Kar örtüsü katmanı (MODIS)
 - [ ] Deniz buzu katmanı (NSIDC)
 
@@ -80,12 +80,12 @@ Yakında → Zoom Earth gibi 2D uydu harita + katman sistemi
 
 ## 🚧 Faz 3 — Gece / Gündüz Sistemi
 
-- [ ] Terminator çizgisi (SunCalc.js)
-- [ ] Gece tarafı GLSL karartma shader'ı
-- [ ] Güneş konumu hesabı (SunCalc.js, offline)
+- [x] Terminator çizgisi (SunCalc.js)
+- [x] Gece tarafı GLSL karartma shader'ı
+- [x] Güneş konumu hesabı (SunCalc.js, offline)
 - [ ] Ay konumu göstergesi
-- [ ] Gündoğumu / günbatımı (koordinata göre)
-- [ ] UTC + yerel saat paneli
+- [x] Gündoğumu / günbatımı (koordinata göre)
+- [x] UTC + yerel saat paneli
 - [ ] Güneş yüksekliği & azimut
 
 **Kaynaklar:** `suncalc` npm (offline, key yok)
@@ -97,15 +97,15 @@ Yakında → Zoom Earth gibi 2D uydu harita + katman sistemi
 > Zoom Earth'teki gibi gerçek zamanlı overlay'ler
 
 ### 4A — Anlık Nokta Verisi (tıklanınca)
-- [ ] Sıcaklık & hissedilen
-- [ ] Nem, yağış, basınç
-- [ ] WMO hava kodu + ikon
-- [ ] Rüzgar hızı & yön
+- [x] Sıcaklık & hissedilen
+- [x] Nem, yağış, basınç
+- [x] WMO hava kodu + ikon
+- [x] Rüzgar hızı & yön
 
 ### 4B — Global Overlay Katmanları
 - [ ] Bulut katmanı — NASA GIBS MODIS
-- [ ] Sıcaklık haritası — Open-Meteo grid renk overlay
-- [ ] Yağış radar — Open-Meteo precipitation
+- [x] Sıcaklık haritası — Open-Meteo grid renk overlay
+- [x] Yağış radar — Open-Meteo precipitation
 - [ ] Kar örtüsü — NASA GIBS MODIS Snow Cover
 - [ ] Fırtına takibi — tropikal sistem animasyonu
 
@@ -117,9 +117,9 @@ Yakında → Zoom Earth gibi 2D uydu harita + katman sistemi
 
 > earth.nullschool.net tarzı akıcı streamline animasyonu
 
-- [ ] Global rüzgar grid verisi (Open-Meteo)
-- [ ] Streamline partikül animasyonu (globe yüzeyinde akar)
-- [ ] Rüzgar hızına göre renk gradyanı (mavi → kırmızı)
+- [x] Global rüzgar grid verisi (Open-Meteo)
+- [x] Streamline partikül animasyonu (globe yüzeyinde akar)
+- [x] Rüzgar hızına göre renk gradyanı (mavi → kırmızı)
 - [ ] Parçacık yoğunluğu ayarı
 - [ ] Yükseklik seçimi (10m / 100m / 1000m)
 
@@ -134,11 +134,11 @@ Yakında → Zoom Earth gibi 2D uydu harita + katman sistemi
 
 > Mevcut prototipin rafine hali
 
-- [ ] Gerçek zamanlı konum (5 sn. polling)
-- [ ] 3D ISS modeli (gövde + güneş panelleri)
-- [ ] Geçmiş yörünge trail (son 200 nokta)
-- [ ] Gelecek yörünge tahmini (kesikli çizgi)
-- [ ] ISS HUD paneli (enlem, boylam, irtifa, hız)
+- [x] Gerçek zamanlı konum (5 sn. polling)
+- [x] 3D ISS modeli (gövde + güneş panelleri)
+- [x] Geçmiş yörünge trail (son 200 nokta)
+- [x] Gelecek yörünge tahmini (kesikli çizgi)
+- [x] ISS HUD paneli (enlem, boylam, irtifa, hız)
 - [ ] ISS'e kamera kilitle / takip modu
 - [ ] ISS altındaki koordinata tıklayınca hava
 
@@ -150,7 +150,7 @@ Yakında → Zoom Earth gibi 2D uydu harita + katman sistemi
 ## 🔮 Faz 9 — Okyanus & Deniz
 
 - [ ] Deniz yüzey sıcaklığı (NASA GIBS SST)
-- [ ] Dalga yüksekliği & yönü (Open-Meteo Marine)
+- [x] Dalga yüksekliği & yönü (Open-Meteo Marine)
 - [ ] Okyanus akıntıları animasyonu
 - [ ] Gel-git verisi (NOAA Tides)
 - [ ] Deniz buzu (NSIDC WMS)
@@ -185,10 +185,10 @@ Yakında → Zoom Earth gibi 2D uydu harita + katman sistemi
 
 > Her fazda paralel yürütülür
 
-- [ ] Sol kenar dikey katman paneli (Zoom Earth toolbar stili)
-- [ ] Aktif katman renk skalası legend
-- [ ] Cursor altında anlık lat/lon göstergesi
-- [ ] Zoom'a göre ölçek çubuğu (km / mi)
+- [x] Sol kenar dikey katman paneli (Zoom Earth toolbar stili)
+- [x] Aktif katman renk skalası legend
+- [x] Cursor altında anlık lat/lon göstergesi
+- [x] Zoom'a göre ölçek çubuğu (km / mi)
 - [ ] Zaman slider'ı (geçmiş uydu görüntüsü)
 - [ ] Minimap (dünya üzerinde konum)
 - [ ] Globe yüklenirken loading ekranı
