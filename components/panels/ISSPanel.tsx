@@ -10,21 +10,21 @@ export default function ISSPanel({ iss }: Props) {
     if (!iss) return null;
 
     return (
-        <div className="bg-black/70 backdrop-blur rounded-lg p-4 text-sm text-cyan-100 space-y-2" role="region" aria-label="ISS panel">
+        <div className="glass rounded-xl p-4 text-sm text-cyan-100 space-y-2" role="region" aria-label="ISS panel">
             <div className="flex items-center gap-2 border-b border-cyan-900/50 pb-2">
                 <span className="text-lg">🛰️</span>
                 <span className="font-semibold text-cyan-300">ISS Takip</span>
                 <span className="ml-auto text-xs text-green-400 animate-pulse">● CANLI</span>
             </div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-                <span className="text-gray-400">Enlem</span>
-                <span>{iss.latitude.toFixed(4)}°</span>
-                <span className="text-gray-400">Boylam</span>
-                <span>{iss.longitude.toFixed(4)}°</span>
-                <span className="text-gray-400">Yükseklik</span>
-                <span>{iss.altitude.toFixed(1)} km</span>
-                <span className="text-gray-400">Hız</span>
-                <span>{iss.velocity.toFixed(0)} km/h</span>
+                <span className="hud-label">Enlem</span>
+                <span className="hud-value hud-value-sm">{iss.latitude.toFixed(4)}°</span>
+                <span className="hud-label">Boylam</span>
+                <span className="hud-value hud-value-sm">{iss.longitude.toFixed(4)}°</span>
+                <span className="hud-label">Yükseklik</span>
+                <span className="hud-value hud-value-sm">{iss.altitude.toFixed(1)} km</span>
+                <span className="hud-label">Hız</span>
+                <span className="hud-value hud-value-sm">{iss.velocity.toFixed(0)} km/h</span>
             </div>
 
             {/* Orbit legend */}

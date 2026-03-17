@@ -1,0 +1,1790 @@
+{
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Tokyo",
+                "population": 37400000,
+                "brightness": 1.0
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    139.6917,
+                    35.6895
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Delhi",
+                "population": 30290000,
+                "brightness": 0.95
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    77.1025,
+                    28.7041
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Shanghai",
+                "population": 27058000,
+                "brightness": 0.97
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    121.4737,
+                    31.2304
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "São Paulo",
+                "population": 22043000,
+                "brightness": 0.92
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    -46.6333,
+                    -23.5505
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Mexico City",
+                "population": 21782000,
+                "brightness": 0.91
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    -99.1332,
+                    19.4326
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Cairo",
+                "population": 20901000,
+                "brightness": 0.88
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    31.2357,
+                    30.0444
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Mumbai",
+                "population": 20411000,
+                "brightness": 0.90
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    72.8777,
+                    19.0760
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Beijing",
+                "population": 20384000,
+                "brightness": 0.93
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    116.4074,
+                    39.9042
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Dhaka",
+                "population": 21006000,
+                "brightness": 0.82
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    90.4125,
+                    23.8103
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Osaka",
+                "population": 19281000,
+                "brightness": 0.94
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    135.5023,
+                    34.6937
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "New York",
+                "population": 18819000,
+                "brightness": 0.98
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    -74.0060,
+                    40.7128
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Karachi",
+                "population": 16094000,
+                "brightness": 0.80
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    67.0011,
+                    24.8607
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Buenos Aires",
+                "population": 15154000,
+                "brightness": 0.87
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    -58.3816,
+                    -34.6037
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Istanbul",
+                "population": 15463000,
+                "brightness": 0.90
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    28.9784,
+                    41.0082
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Chongqing",
+                "population": 15872000,
+                "brightness": 0.85
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    106.5516,
+                    29.5630
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Kolkata",
+                "population": 14850000,
+                "brightness": 0.82
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    88.3639,
+                    22.5726
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Manila",
+                "population": 13923000,
+                "brightness": 0.83
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    120.9842,
+                    14.5995
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Lagos",
+                "population": 14368000,
+                "brightness": 0.78
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    3.3792,
+                    6.5244
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Rio de Janeiro",
+                "population": 13458000,
+                "brightness": 0.86
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    -43.1729,
+                    -22.9068
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Tianjin",
+                "population": 13215000,
+                "brightness": 0.84
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    117.3616,
+                    39.3434
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Kinshasa",
+                "population": 14342000,
+                "brightness": 0.65
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    15.2663,
+                    -4.4419
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Guangzhou",
+                "population": 13301000,
+                "brightness": 0.89
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    113.2644,
+                    23.1291
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Los Angeles",
+                "population": 13200000,
+                "brightness": 0.96
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    -118.2437,
+                    34.0522
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Moscow",
+                "population": 12538000,
+                "brightness": 0.92
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    37.6173,
+                    55.7558
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Shenzhen",
+                "population": 12357000,
+                "brightness": 0.91
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    114.0579,
+                    22.5431
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Lahore",
+                "population": 12642000,
+                "brightness": 0.78
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    74.3587,
+                    31.5204
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Bangalore",
+                "population": 12327000,
+                "brightness": 0.85
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    77.5946,
+                    12.9716
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Paris",
+                "population": 11020000,
+                "brightness": 0.95
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    2.3522,
+                    48.8566
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Bogota",
+                "population": 10978000,
+                "brightness": 0.82
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    -74.0721,
+                    4.7110
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Jakarta",
+                "population": 10770000,
+                "brightness": 0.83
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    106.8456,
+                    -6.2088
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Chennai",
+                "population": 10456000,
+                "brightness": 0.82
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    80.2707,
+                    13.0827
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Lima",
+                "population": 10391000,
+                "brightness": 0.80
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    -77.0428,
+                    -12.0464
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Bangkok",
+                "population": 10539000,
+                "brightness": 0.86
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    100.5018,
+                    13.7563
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Seoul",
+                "population": 9963000,
+                "brightness": 0.96
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    126.9780,
+                    37.5665
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Nagoya",
+                "population": 9507000,
+                "brightness": 0.93
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    136.9066,
+                    35.1815
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Hyderabad",
+                "population": 9482000,
+                "brightness": 0.82
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    78.4867,
+                    17.3850
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "London",
+                "population": 9046000,
+                "brightness": 0.95
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    -0.1278,
+                    51.5074
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Tehran",
+                "population": 9013000,
+                "brightness": 0.82
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    51.3890,
+                    35.6892
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Chicago",
+                "population": 8865000,
+                "brightness": 0.94
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    -87.6298,
+                    41.8781
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Chengdu",
+                "population": 9135000,
+                "brightness": 0.85
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    104.0665,
+                    30.5728
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Nanjing",
+                "population": 8847000,
+                "brightness": 0.86
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    118.7969,
+                    32.0603
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Wuhan",
+                "population": 8176000,
+                "brightness": 0.85
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    114.3055,
+                    30.5928
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Ho Chi Minh City",
+                "population": 8993000,
+                "brightness": 0.80
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    106.6297,
+                    10.8231
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Luanda",
+                "population": 8330000,
+                "brightness": 0.65
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    13.2343,
+                    -8.8390
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Ahmedabad",
+                "population": 8059000,
+                "brightness": 0.80
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    72.5714,
+                    23.0225
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Kuala Lumpur",
+                "population": 7996000,
+                "brightness": 0.86
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    101.6869,
+                    3.1390
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Hong Kong",
+                "population": 7482000,
+                "brightness": 0.96
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    114.1694,
+                    22.3193
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Hangzhou",
+                "population": 7642000,
+                "brightness": 0.87
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    120.1551,
+                    30.2741
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Riyadh",
+                "population": 7676000,
+                "brightness": 0.82
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    46.6753,
+                    24.7136
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Shenyang",
+                "population": 8106000,
+                "brightness": 0.83
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    123.4328,
+                    41.8057
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Baghdad",
+                "population": 7144000,
+                "brightness": 0.72
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    44.3661,
+                    33.3152
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Santiago",
+                "population": 6680000,
+                "brightness": 0.85
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    -70.6693,
+                    -33.4489
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Dallas",
+                "population": 7637000,
+                "brightness": 0.93
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    -96.7970,
+                    32.7767
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Madrid",
+                "population": 6642000,
+                "brightness": 0.92
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    -3.7038,
+                    40.4168
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Dar es Salaam",
+                "population": 6702000,
+                "brightness": 0.60
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    39.2083,
+                    -6.7924
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Toronto",
+                "population": 6255000,
+                "brightness": 0.92
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    -79.3832,
+                    43.6532
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Miami",
+                "population": 6166000,
+                "brightness": 0.93
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    -80.1918,
+                    25.7617
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Belo Horizonte",
+                "population": 6007000,
+                "brightness": 0.82
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    -43.9345,
+                    -19.9167
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Singapore",
+                "population": 5850000,
+                "brightness": 0.97
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    103.8198,
+                    1.3521
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Philadelphia",
+                "population": 5756000,
+                "brightness": 0.93
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    -75.1652,
+                    39.9526
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Houston",
+                "population": 7122000,
+                "brightness": 0.93
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    -95.3698,
+                    29.7604
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Atlanta",
+                "population": 6089000,
+                "brightness": 0.92
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    -84.3880,
+                    33.7490
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Fukuoka",
+                "population": 5552000,
+                "brightness": 0.92
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    130.4017,
+                    33.5902
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Khartoum",
+                "population": 5678000,
+                "brightness": 0.60
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    32.5599,
+                    15.5007
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Barcelona",
+                "population": 5575000,
+                "brightness": 0.92
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    2.1734,
+                    41.3851
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Johannesburg",
+                "population": 5635000,
+                "brightness": 0.80
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    28.0473,
+                    -26.2041
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "St Petersburg",
+                "population": 5384000,
+                "brightness": 0.88
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    30.3351,
+                    59.9343
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Qingdao",
+                "population": 5381000,
+                "brightness": 0.82
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    120.3826,
+                    36.0671
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Dalian",
+                "population": 5072000,
+                "brightness": 0.82
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    121.6147,
+                    38.9140
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Washington DC",
+                "population": 5384000,
+                "brightness": 0.94
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    -77.0369,
+                    38.9072
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Yangon",
+                "population": 5157000,
+                "brightness": 0.70
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    96.1951,
+                    16.8661
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Alexandria",
+                "population": 5320000,
+                "brightness": 0.78
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    29.9187,
+                    31.2001
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Ankara",
+                "population": 5503000,
+                "brightness": 0.85
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    32.8597,
+                    39.9334
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Guadalajara",
+                "population": 5023000,
+                "brightness": 0.80
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    -103.3496,
+                    20.6597
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Melbourne",
+                "population": 5078000,
+                "brightness": 0.93
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    144.9631,
+                    -37.8136
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Sydney",
+                "population": 5312000,
+                "brightness": 0.95
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    151.2093,
+                    -33.8688
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Berlin",
+                "population": 3748000,
+                "brightness": 0.94
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    13.4050,
+                    52.5200
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Rome",
+                "population": 4210000,
+                "brightness": 0.92
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    12.4964,
+                    41.9028
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Milan",
+                "population": 4336000,
+                "brightness": 0.93
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    9.1900,
+                    45.4642
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Athens",
+                "population": 3154000,
+                "brightness": 0.88
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    23.7275,
+                    37.9838
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Nairobi",
+                "population": 4735000,
+                "brightness": 0.72
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    36.8219,
+                    -1.2921
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Casablanca",
+                "population": 3752000,
+                "brightness": 0.78
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    -7.5898,
+                    33.5731
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Algiers",
+                "population": 3415000,
+                "brightness": 0.75
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    3.0588,
+                    36.7538
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Tel Aviv",
+                "population": 4100000,
+                "brightness": 0.90
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    34.7818,
+                    32.0853
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Lisbon",
+                "population": 2942000,
+                "brightness": 0.90
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    -9.1393,
+                    38.7223
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Dublin",
+                "population": 1345000,
+                "brightness": 0.88
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    -6.2603,
+                    53.3498
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Vienna",
+                "population": 2008000,
+                "brightness": 0.92
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    16.3738,
+                    48.2082
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Amsterdam",
+                "population": 2480000,
+                "brightness": 0.93
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    4.9041,
+                    52.3676
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Warsaw",
+                "population": 1786000,
+                "brightness": 0.88
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    21.0122,
+                    52.2297
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Bucharest",
+                "population": 1883000,
+                "brightness": 0.82
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    26.1025,
+                    44.4268
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Brussels",
+                "population": 2081000,
+                "brightness": 0.92
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    4.3517,
+                    50.8503
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Stockholm",
+                "population": 1632000,
+                "brightness": 0.92
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    18.0686,
+                    59.3293
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Oslo",
+                "population": 1027000,
+                "brightness": 0.90
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    10.7522,
+                    59.9139
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Copenhagen",
+                "population": 1346000,
+                "brightness": 0.92
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    12.5683,
+                    55.6761
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Helsinki",
+                "population": 1268000,
+                "brightness": 0.90
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    24.9384,
+                    60.1695
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Prague",
+                "population": 1309000,
+                "brightness": 0.90
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    14.4378,
+                    50.0755
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Budapest",
+                "population": 1775000,
+                "brightness": 0.88
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    19.0402,
+                    47.4979
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Munich",
+                "population": 1540000,
+                "brightness": 0.93
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    11.5820,
+                    48.1351
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Zurich",
+                "population": 1383000,
+                "brightness": 0.94
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    8.5417,
+                    47.3769
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "San Francisco",
+                "population": 4731000,
+                "brightness": 0.95
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    -122.4194,
+                    37.7749
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Seattle",
+                "population": 3979000,
+                "brightness": 0.93
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    -122.3321,
+                    47.6062
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Denver",
+                "population": 2932000,
+                "brightness": 0.92
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    -104.9903,
+                    39.7392
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Phoenix",
+                "population": 4946000,
+                "brightness": 0.92
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    -112.0740,
+                    33.4484
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Montreal",
+                "population": 4221000,
+                "brightness": 0.92
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    -73.5673,
+                    45.5017
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Vancouver",
+                "population": 2632000,
+                "brightness": 0.92
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    -123.1216,
+                    49.2827
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Havana",
+                "population": 2141000,
+                "brightness": 0.70
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    -82.3666,
+                    23.1136
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Cape Town",
+                "population": 4618000,
+                "brightness": 0.82
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    18.4241,
+                    -33.9249
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Addis Ababa",
+                "population": 3600000,
+                "brightness": 0.65
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    38.7578,
+                    9.0250
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Dubai",
+                "population": 3478000,
+                "brightness": 0.92
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    55.2708,
+                    25.2048
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Doha",
+                "population": 2382000,
+                "brightness": 0.88
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    51.5310,
+                    25.2854
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Abu Dhabi",
+                "population": 1452000,
+                "brightness": 0.88
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    54.6882,
+                    24.4539
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Kuwait City",
+                "population": 2989000,
+                "brightness": 0.85
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    47.9783,
+                    29.3759
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Izmir",
+                "population": 4394000,
+                "brightness": 0.82
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    27.1428,
+                    38.4237
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Taipei",
+                "population": 7046000,
+                "brightness": 0.93
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    121.5654,
+                    25.0330
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Hanoi",
+                "population": 4678000,
+                "brightness": 0.78
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    105.8342,
+                    21.0278
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Colombo",
+                "population": 2323000,
+                "brightness": 0.75
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    79.8612,
+                    6.9271
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Kathmandu",
+                "population": 1442000,
+                "brightness": 0.65
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    85.3240,
+                    27.7172
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Perth",
+                "population": 2085000,
+                "brightness": 0.90
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    115.8605,
+                    -31.9505
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Auckland",
+                "population": 1657000,
+                "brightness": 0.88
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    174.7633,
+                    -36.8485
+                ]
+            }
+        }
+    ]
+}

@@ -13,18 +13,37 @@ export function useISS(enabled: boolean) {
     const [iss, setIss] = useState<ISSData | null>(null);
     const [trail, setTrail] = useState<ISSTrailPoint[]>([]);
     const [prediction, setPrediction] = useState<{ lat: number; lon: number }[]>([]);
-    const timer = useRef<ReturnType<typeof setInterval>>();
+    const timer = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
     const computePrediction = useCallback((data: ISSData) => {
         const pts: { lat: number; lon: number }[] = [];
         const periodSec = ISS_ORBITAL_PERIOD * 60;
-        const angularVelocity = 360 / periodSec;
+        const inclination = 51.6 * (Math.PI / 180); // ISS orbital inclination in radians
+        const angularVelocity = (2 * Math.PI) / periodSec;
+        const earthRotRate = (2 * Math.PI) / 86400;
+
+        // Compute initial orbital phase from current position
+        const latRad = data.latitude * (Math.PI / 180);
+        const phase0 = Math.asin(Math.sin(latRad) / Math.sin(inclination));
+
         for (let i = 0; i <= PREDICTION_STEPS; i++) {
             const t = (i / PREDICTION_STEPS) * periodSec;
-            const lonOffset = angularVelocity * t;
-            const earthRotation = (t / 86400) * 360;
-            const lat = data.latitude * Math.cos((2 * Math.PI * t) / periodSec);
-            const lon = ((data.longitude + lonOffset - earthRotation + 540) % 360) - 180;
+            const phase = phase0 + angularVelocity * t;
+
+            // Latitude from orbital inclination
+            const lat = Math.asin(Math.sin(inclination) * Math.sin(phase)) * (180 / Math.PI);
+
+            // Longitude with ascending node regression and Earth rotation
+            const lonShift = Math.atan2(
+                Math.cos(inclination) * Math.sin(phase),
+                Math.cos(phase)
+            ) * (180 / Math.PI);
+            const ascNodeShift = Math.atan2(
+                Math.cos(inclination) * Math.sin(phase0),
+                Math.cos(phase0)
+            ) * (180 / Math.PI);
+            const lon = ((data.longitude + (lonShift - ascNodeShift) - (earthRotRate * t * 180 / Math.PI)) + 540) % 360 - 180;
+
             pts.push({ lat, lon });
         }
         return pts;

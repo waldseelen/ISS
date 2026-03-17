@@ -26,7 +26,7 @@ export default function WeatherPanel({ weather, marine }: Props) {
 
     if (!weather) {
         return (
-            <div className="bg-black/70 backdrop-blur rounded-lg p-4 text-sm text-cyan-100" role="region" aria-label="Weather panel">
+            <div className="glass rounded-xl p-4 text-sm text-cyan-100" role="region" aria-label="Weather panel">
                 <p className="text-gray-400">Konum seçin veya haritaya tıklayın</p>
             </div>
         );
@@ -35,9 +35,9 @@ export default function WeatherPanel({ weather, marine }: Props) {
     const info = getWeatherInfo(weather.weatherCode);
 
     return (
-        <div className="bg-black/70 backdrop-blur rounded-lg p-4 text-sm text-cyan-100 space-y-3 max-h-[70vh] overflow-y-auto" role="region" aria-label="Weather panel">
+        <div className="glass rounded-xl p-4 text-sm text-cyan-100 space-y-3 max-h-[70vh] overflow-y-auto" role="region" aria-label="Weather panel">
             {/* UTC Time */}
-            <div className="text-xs text-cyan-400 font-mono border-b border-cyan-900/50 pb-2">
+            <div className="hud-label hud-label-cyan text-[10px] border-b border-cyan-900/50 pb-2">
                 {utcTime}
             </div>
 
@@ -52,16 +52,16 @@ export default function WeatherPanel({ weather, marine }: Props) {
 
             {/* Details Grid */}
             <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-                <span className="text-gray-400">Hissedilen</span>
-                <span>{weather.apparentTemperature}°C</span>
-                <span className="text-gray-400">Nem</span>
-                <span>{weather.humidity}%</span>
-                <span className="text-gray-400">Rüzgar</span>
-                <span>{weather.windSpeed} km/h</span>
-                <span className="text-gray-400">Rüzgar Yönü</span>
-                <span>{weather.windDirection}°</span>
-                <span className="text-gray-400">Yağış</span>
-                <span>{weather.precipitation} mm</span>
+                <span className="hud-label">Hissedilen</span>
+                <span className="hud-value hud-value-sm">{weather.apparentTemperature}°C</span>
+                <span className="hud-label">Nem</span>
+                <span className="hud-value hud-value-sm">{weather.humidity}%</span>
+                <span className="hud-label">Rüzgar</span>
+                <span className="hud-value hud-value-sm">{weather.windSpeed} km/h</span>
+                <span className="hud-label">Rüzgar Yönü</span>
+                <span className="hud-value hud-value-sm">{weather.windDirection}°</span>
+                <span className="hud-label">Yağış</span>
+                <span className="hud-value hud-value-sm">{weather.precipitation} mm</span>
             </div>
 
             {/* Marine */}

@@ -10,8 +10,8 @@ export default function TimeLegend({ modules }: Props) {
     return (
         <div className="fixed top-20 right-4 z-40 flex flex-col gap-2">
             {modules.precipitation && (
-                <div className="bg-black/70 backdrop-blur rounded-lg p-2 text-xs text-cyan-100">
-                    <p className="font-medium mb-1 text-cyan-400">Yağış (mm/h)</p>
+                <div className="glass rounded-xl p-2 text-xs text-cyan-100">
+                    <p className="hud-label hud-label-cyan mb-1">Yağış (mm/h)</p>
                     <div className="flex items-center gap-1">
                         <div className="w-3 h-3 rounded bg-[#00ff00]" />
                         <span>0-1</span>
@@ -25,8 +25,8 @@ export default function TimeLegend({ modules }: Props) {
                 </div>
             )}
             {modules.temperature && (
-                <div className="bg-black/70 backdrop-blur rounded-lg p-2 text-xs text-cyan-100">
-                    <p className="font-medium mb-1 text-cyan-400">Sıcaklık (°C)</p>
+                <div className="glass rounded-xl p-2 text-xs text-cyan-100">
+                    <p className="hud-label hud-label-cyan mb-1">Sıcaklık (°C)</p>
                     <div className="flex items-center gap-1">
                         <div className="w-3 h-3 rounded bg-[#0000ff]" />
                         <span>&lt;0</span>
@@ -42,8 +42,8 @@ export default function TimeLegend({ modules }: Props) {
                 </div>
             )}
             {modules.wind && (
-                <div className="bg-black/70 backdrop-blur rounded-lg p-2 text-xs text-cyan-100">
-                    <p className="font-medium mb-1 text-cyan-400">Rüzgar (km/h)</p>
+                <div className="glass rounded-xl p-2 text-xs text-cyan-100">
+                    <p className="hud-label hud-label-cyan mb-1">Rüzgar (km/h)</p>
                     <div className="flex items-center gap-1">
                         <div className="w-3 h-3 rounded bg-blue-400" />
                         <span>0-20</span>

@@ -10,7 +10,7 @@ const DEFAULT_STATE: ModuleState = {
     street: false,
     topo: false,
     nasaGIBS: false,
-    nightLights: true,
+    nightLights: false,
     dayNight: true,
     weather: true,
     wind: false,

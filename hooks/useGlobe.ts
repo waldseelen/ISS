@@ -4,20 +4,30 @@ import {
     buildAtmosphereMesh,
     buildCloudMesh,
     buildISSModel,
+    buildLightningSystem,
     buildPredictionLine,
     buildStarField,
+    buildStormSystem,
     buildTerminatorMaterial,
     buildTrailLine,
     buildWeatherMarker,
     buildWindParticles,
     EARTH_RADIUS,
     latLonToVector3,
+    type LightningState,
+    type StormState,
 } from '@/lib/globe';
+import { buildBrightStars, buildConstellationLines } from '@/lib/stars';
 import { TILES } from '@/lib/tiles';
 import type { ISSData, ModuleState, SunPosition, WindPoint } from '@/types';
 import { useCallback, useRef } from 'react';
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { FXAAShader } from 'three/examples/jsm/shaders/FXAAShader.js';
 
 interface GlobeAPI {
     mount: (container: HTMLDivElement) => void;
@@ -33,27 +43,69 @@ interface GlobeAPI {
     onCameraChange: (cb: (distance: number) => void) => void;
 }
 
-export function useGlobe(): GlobeAPI {
-    const sceneRef = useRef<THREE.Scene>();
-    const cameraRef = useRef<THREE.PerspectiveCamera>();
-    const rendererRef = useRef<THREE.WebGLRenderer>();
-    const controlsRef = useRef<OrbitControls>();
-    const frameRef = useRef<number>(0);
-    const containerRef = useRef<HTMLDivElement>();
+function syncCameraClipping(camera: THREE.PerspectiveCamera) {
+    const distance = camera.position.length();
+    const surfaceGap = Math.max(distance - EARTH_RADIUS * 1.02, 0.12);
+    const nextNear = THREE.MathUtils.clamp(surfaceGap * 0.45, 0.12, 2.0);
+    const nextFar = Math.max(950, distance + 820);
 
-    const earthRef = useRef<THREE.Mesh>();
-    const nightRef = useRef<THREE.Mesh>();
-    const atmosphereRef = useRef<THREE.Mesh>();
-    const cloudRef = useRef<THREE.Mesh>();
-    const starsRef = useRef<THREE.Points>();
-    const issGroupRef = useRef<THREE.Group>();
-    const trailRef = useRef<ReturnType<typeof buildTrailLine>>();
-    const predRef = useRef<ReturnType<typeof buildPredictionLine>>();
-    const windRef = useRef<ReturnType<typeof buildWindParticles>>();
-    const markerRef = useRef<THREE.Mesh>();
+    if (Math.abs(camera.near - nextNear) > 0.01 || Math.abs(camera.far - nextFar) > 1) {
+        camera.near = nextNear;
+        camera.far = nextFar;
+        camera.updateProjectionMatrix();
+    }
+}
+
+function syncFxaaResolution(pass: ShaderPass, renderer: THREE.WebGLRenderer, width: number, height: number) {
+    const pixelRatio = renderer.getPixelRatio();
+    const resolution = pass.material.uniforms.resolution?.value;
+
+    if (resolution instanceof THREE.Vector2) {
+        resolution.set(1 / (width * pixelRatio), 1 / (height * pixelRatio));
+    }
+}
+
+export function useGlobe(): GlobeAPI {
+    const sceneRef = useRef<THREE.Scene | undefined>(undefined);
+    const cameraRef = useRef<THREE.PerspectiveCamera | undefined>(undefined);
+    const rendererRef = useRef<THREE.WebGLRenderer | undefined>(undefined);
+    const controlsRef = useRef<OrbitControls | undefined>(undefined);
+    const frameRef = useRef<number>(0);
+    const containerRef = useRef<HTMLDivElement | undefined>(undefined);
+
+    const earthRef = useRef<THREE.Mesh | undefined>(undefined);
+    const nightRef = useRef<THREE.Mesh | undefined>(undefined);
+    const atmosphereRef = useRef<THREE.Mesh | undefined>(undefined);
+    const cloudRef = useRef<THREE.Mesh | undefined>(undefined);
+    const starsRef = useRef<THREE.Points | undefined>(undefined);
+    const issGroupRef = useRef<THREE.Group | undefined>(undefined);
+    const trailRef = useRef<ReturnType<typeof buildTrailLine> | undefined>(undefined);
+    const predRef = useRef<ReturnType<typeof buildPredictionLine> | undefined>(undefined);
+    const windRef = useRef<ReturnType<typeof buildWindParticles> | undefined>(undefined);
+    const markerRef = useRef<THREE.Group | undefined>(undefined);
     const sunDirRef = useRef(new THREE.Vector3(1, 0, 0));
     const cityLightsTexRef = useRef<THREE.Texture | null>(null);
     const cameraCallbackRef = useRef<((d: number) => void) | null>(null);
+    const resizeHandlerRef = useRef<(() => void) | null>(null);
+    const clockRef = useRef(new THREE.Timer());
+    const timeRef = useRef(0);
+    const modulesRef = useRef<ModuleState | null>(null);
+    const windTickAccumulatorRef = useRef(0);
+
+    // Postprocessing
+    const composerRef = useRef<EffectComposer | undefined>(undefined);
+    const fxaaPassRef = useRef<ShaderPass | undefined>(undefined);
+
+    // Stars / Constellations / Telescope
+    const brightStarsRef = useRef<THREE.Group | undefined>(undefined);
+    const constellationRef = useRef<THREE.Group | undefined>(undefined);
+
+    // Lightning / Storm
+    const lightningRef = useRef<LightningState | undefined>(undefined);
+    const stormRef = useRef<StormState | undefined>(undefined);
+
+    // Marker pulse time
+    const markerPulseTimeRef = useRef(0);
 
     // Fly animation state
     const flyState = useRef<{
@@ -72,28 +124,39 @@ export function useGlobe(): GlobeAPI {
 
         // Scene
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x000000);
+        scene.background = new THREE.Color(0x000008);
         sceneRef.current = scene;
 
         // Camera
         const camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 2000);
         camera.position.set(0, 0, 18);
+        camera.up.set(0, 1, 0);
+        syncCameraClipping(camera);
         cameraRef.current = camera;
 
         // Renderer
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+        const renderer = new THREE.WebGLRenderer({
+            antialias: true,
+            alpha: false,
+            powerPreference: 'high-performance',
+            precision: 'highp',
+        });
         renderer.setSize(w, h);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.0;
         container.appendChild(renderer.domElement);
         rendererRef.current = renderer;
 
         // Controls
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
-        controls.dampingFactor = 0.08;
-        controls.minDistance = EARTH_RADIUS * 1.2;
-        controls.maxDistance = 50;
+        controls.dampingFactor = 0.06;
+        controls.minDistance = EARTH_RADIUS * 1.08;
+        controls.maxDistance = 45;
         controls.enablePan = false;
+        controls.target.set(0, 0, 0);
         controls.rotateSpeed = 0.5;
         controls.zoomSpeed = 1.2;
         controlsRef.current = controls;
@@ -123,7 +186,7 @@ export function useGlobe(): GlobeAPI {
             shininess: 15,
         });
         // Load a combined satellite tile as base texture
-        const earthTex = loader.load(
+        loader.load(
             'https://upload.wikimedia.org/wikipedia/commons/thumb/2/23/Blue_Marble_2002.png/1280px-Blue_Marble_2002.png',
             (tex) => {
                 earthMat.map = tex;
@@ -132,6 +195,7 @@ export function useGlobe(): GlobeAPI {
             }
         );
         const earth = new THREE.Mesh(earthGeo, earthMat);
+        earth.renderOrder = 0;
         scene.add(earth);
         earthRef.current = earth;
 
@@ -154,16 +218,19 @@ export function useGlobe(): GlobeAPI {
         const nightGeo = new THREE.SphereGeometry(EARTH_RADIUS * 1.002, 128, 128);
         const nightMat = buildTerminatorMaterial(sunDirRef.current, null);
         const nightMesh = new THREE.Mesh(nightGeo, nightMat);
+        nightMesh.renderOrder = 1;
         scene.add(nightMesh);
         nightRef.current = nightMesh;
 
         // Atmosphere
         const atmosphere = buildAtmosphereMesh();
+        atmosphere.renderOrder = 3;
         scene.add(atmosphere);
         atmosphereRef.current = atmosphere;
 
         // Clouds
         const cloud = buildCloudMesh();
+        cloud.renderOrder = 2;
         scene.add(cloud);
         cloudRef.current = cloud;
 
@@ -195,13 +262,134 @@ export function useGlobe(): GlobeAPI {
         scene.add(windObj.points);
         windRef.current = windObj;
 
+        // ── Bright Stars (named sprites) ──
+        const brightStars = buildBrightStars();
+        scene.add(brightStars);
+        brightStarsRef.current = brightStars;
+
+        // ── Constellation Lines ──
+        const constellations = buildConstellationLines();
+        scene.add(constellations);
+        constellationRef.current = constellations;
+
+        // ── Lightning System ──
+        const lightning = buildLightningSystem(scene);
+        lightningRef.current = lightning;
+
+        // ── Storm System ──
+        const storm = buildStormSystem(scene);
+        stormRef.current = storm;
+
+        // ── EffectComposer + UnrealBloomPass ──
+        const composer = new EffectComposer(renderer);
+        const renderPass = new RenderPass(scene, camera);
+        composer.addPass(renderPass);
+        const bloomPass = new UnrealBloomPass(
+            new THREE.Vector2(w, h),
+            0.18,  // strength
+            0.12,  // radius
+            0.94,  // threshold
+        );
+        composer.addPass(bloomPass);
+        const fxaaPass = new ShaderPass(FXAAShader);
+        syncFxaaResolution(fxaaPass, renderer, w, h);
+        composer.addPass(fxaaPass);
+        fxaaPassRef.current = fxaaPass;
+        composerRef.current = composer;
+
         // Animation loop
         const animate = () => {
             frameRef.current = requestAnimationFrame(animate);
-            controls.update();
+
+            // OrbitControls sadece uçuş animasyonu yokken güncellenir;
+            // yoksa kamera konumu çakışır ve "snap-back" titremesi oluşur.
+            if (!flyState.current?.active) {
+                controls.update();
+            }
+
+            clockRef.current.update();
+            const dt = Math.min(clockRef.current.getDelta(), 1 / 24);
+            timeRef.current += dt;
 
             // Cloud rotation
-            if (cloudRef.current) cloudRef.current.rotation.y += 0.00005;
+            if (cloudRef.current) cloudRef.current.rotation.y += 0.0003;
+
+            // Wind particle tick (per-frame animation!)
+            if (windRef.current && windRef.current.points.visible) {
+                windTickAccumulatorRef.current += dt;
+                if (windTickAccumulatorRef.current >= 1 / 30) {
+                    windRef.current.tick();
+                    windTickAccumulatorRef.current = 0;
+                }
+            }
+
+            // ISS beacon pulse
+            if (issGroupRef.current?.visible) {
+                const beacon = issGroupRef.current.getObjectByName('issBeacon');
+                if (beacon && beacon instanceof THREE.Mesh) {
+                    const mat = beacon.material as THREE.MeshBasicMaterial;
+                    mat.opacity = 0.5 + 0.5 * Math.sin(timeRef.current * 4);
+                }
+            }
+
+            // Night shader time uniform for twinkle
+            if (nightRef.current) {
+                const mat = nightRef.current.material as THREE.ShaderMaterial;
+                if (mat.uniforms?.uTime) mat.uniforms.uTime.value = timeRef.current;
+            }
+
+            // ── Weather Marker Pulse Animation ──
+            if (markerRef.current) {
+                markerPulseTimeRef.current += dt;
+                const pTime = markerPulseTimeRef.current;
+                const ring = markerRef.current.getObjectByName('markerRing') as THREE.Mesh | undefined;
+                const pulse = markerRef.current.getObjectByName('markerPulse') as THREE.Mesh | undefined;
+                if (ring) {
+                    (ring.material as THREE.MeshBasicMaterial).opacity = 0.2 + 0.3 * Math.sin(pTime * 3);
+                }
+                if (pulse) {
+                    const s = 1 + (pTime % 2) * 1.5;
+                    pulse.scale.setScalar(s);
+                    (pulse.material as THREE.MeshBasicMaterial).opacity = Math.max(0, 0.6 - (pTime % 2) * 0.3);
+                }
+            }
+
+            // ── Lightning Flashes ──
+            const weatherFxEnabled = Boolean(modulesRef.current?.weather && modulesRef.current?.clouds);
+            if (lightningRef.current && weatherFxEnabled) {
+                lightningRef.current.tick(timeRef.current);
+            }
+
+            // ── Storm Pulse ──
+            if (stormRef.current && weatherFxEnabled) {
+                stormRef.current.tick(timeRef.current);
+            } else if (stormRef.current) {
+                stormRef.current.light.intensity = 0;
+            }
+
+            // ── Telescope Module: distance-based star/constellation fade ──
+            if (cameraRef.current) {
+                const camDist = camera.position.length();
+                // Stars fade out when very close (< 10), full when far (> 20)
+                const starFactor = THREE.MathUtils.clamp((camDist - 8) / 15, 0, 1);
+                if (starsRef.current) {
+                    (starsRef.current.material as THREE.PointsMaterial).opacity = starFactor * 0.9;
+                }
+                if (brightStarsRef.current) {
+                    brightStarsRef.current.children.forEach(c => {
+                        if (c instanceof THREE.Sprite) {
+                            (c.material as THREE.SpriteMaterial).opacity = starFactor;
+                        }
+                    });
+                }
+                if (constellationRef.current) {
+                    constellationRef.current.children.forEach(c => {
+                        if (c instanceof THREE.Line) {
+                            (c.material as THREE.LineBasicMaterial).opacity = starFactor * 0.25;
+                        }
+                    });
+                }
+            }
 
             // Fly animation
             if (flyState.current?.active) {
@@ -214,11 +402,23 @@ export function useGlobe(): GlobeAPI {
                     eased
                 );
                 camera.position.copy(currentPos);
+                controls.target.set(0, 0, 0);
                 camera.lookAt(0, 0, 0);
-                if (t >= 1) flyState.current.active = false;
+                if (t >= 1) {
+                    flyState.current.active = false;
+                    // Yeni kamera konumunu OrbitControls'a sync'le (geri-dönme önlenir)
+                    controls.target.set(0, 0, 0);
+                    controls.update();
+                }
             }
 
-            renderer.render(scene, camera);
+            syncCameraClipping(camera);
+
+            if (composerRef.current) {
+                composerRef.current.render();
+            } else {
+                renderer.render(scene, camera);
+            }
         };
         animate();
 
@@ -230,12 +430,26 @@ export function useGlobe(): GlobeAPI {
             camera.aspect = nw / nh;
             camera.updateProjectionMatrix();
             renderer.setSize(nw, nh);
+            if (composerRef.current) composerRef.current.setSize(nw, nh);
+            if (fxaaPassRef.current) syncFxaaResolution(fxaaPassRef.current, renderer, nw, nh);
         };
         window.addEventListener('resize', onResize);
+        resizeHandlerRef.current = onResize;
     }, []);
 
     const unmount = useCallback(() => {
         cancelAnimationFrame(frameRef.current);
+        // Clean up resize listener
+        if (resizeHandlerRef.current) {
+            window.removeEventListener('resize', resizeHandlerRef.current);
+            resizeHandlerRef.current = null;
+        }
+        // Dispose effects
+        if (lightningRef.current) lightningRef.current.dispose();
+        if (stormRef.current) stormRef.current.dispose();
+        composerRef.current?.dispose();
+        composerRef.current = undefined;
+        fxaaPassRef.current = undefined;
         if (rendererRef.current && containerRef.current) {
             containerRef.current.removeChild(rendererRef.current.domElement);
             rendererRef.current.dispose();
@@ -286,7 +500,7 @@ export function useGlobe(): GlobeAPI {
 
     const updateWind = useCallback((data: WindPoint[]) => {
         if (windRef.current && data.length) {
-            windRef.current.update(data.map(w => ({
+            windRef.current.setWindData(data.map(w => ({
                 lat: w.lat,
                 lon: w.lon,
                 speed: w.speed,
@@ -296,11 +510,14 @@ export function useGlobe(): GlobeAPI {
     }, []);
 
     const updateModules = useCallback((m: ModuleState) => {
+        modulesRef.current = m;
         if (windRef.current) windRef.current.points.visible = m.wind;
         if (issGroupRef.current) issGroupRef.current.visible = m.iss;
         if (trailRef.current) trailRef.current.line.visible = m.iss;
         if (predRef.current) predRef.current.line.visible = m.iss;
-        if (nightRef.current) nightRef.current.visible = m.nightLights;
+        if (nightRef.current) nightRef.current.visible = m.dayNight || m.nightLights;
+        if (cloudRef.current) cloudRef.current.visible = m.clouds;
+        if (atmosphereRef.current) atmosphereRef.current.visible = true;
     }, []);
 
     const flyTo = useCallback((lat: number, lon: number) => {
@@ -345,3 +562,4 @@ export function useGlobe(): GlobeAPI {
         onCameraChange,
     };
 }
+

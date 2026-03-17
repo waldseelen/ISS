@@ -3,8 +3,19 @@
 @tailwind utilities;
 
 :root {
-    --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
+    --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+    --font-sans: 'Inter', system-ui, sans-serif;
     --cyan: #00e5ff;
+
+    /* ─── Glass Design System ─── */
+    --glass-bg: rgba(8, 12, 22, 0.72);
+    --glass-bg-heavy: rgba(4, 8, 18, 0.88);
+    --glass-blur: 16px;
+    --glass-blur-heavy: 24px;
+    --glass-border: rgba(6, 182, 212, 0.15);
+    --glass-border-active: rgba(0, 229, 255, 0.35);
+    --glass-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), 0 0 1px rgba(0, 229, 255, 0.1);
+    --glass-shadow-heavy: 0 8px 40px rgba(0, 0, 0, 0.6), 0 0 2px rgba(0, 229, 255, 0.15);
 }
 
 * {
@@ -19,23 +30,57 @@ body {
     -webkit-font-smoothing: antialiased;
 }
 
-/* Scrollbar */
-::-webkit-scrollbar {
-    width: 4px;
+/* ─── Glass Morphism Components ─── */
+.glass {
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
 }
 
-::-webkit-scrollbar-track {
-    background: transparent;
+.glass-elevated {
+    background: var(--glass-bg-heavy);
+    -webkit-backdrop-filter: blur(var(--glass-blur-heavy));
+    backdrop-filter: blur(var(--glass-blur-heavy));
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow-heavy);
 }
 
-::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.15);
-    border-radius: 2px;
+/* ─── HUD Typography System ─── */
+.hud-label {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(148, 163, 184, 0.7);
 }
 
-/* Glass morphism utility */
-.bg-glass {
-    background: rgba(8, 12, 22, 0.72);
+.hud-label-cyan {
+    color: var(--cyan);
+}
+
+.hud-value {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: #00e5ff;
+    text-shadow: 0 0 6px rgba(0, 229, 255, 0.4);
+}
+
+.hud-value-sm {
+    font-size: 12px;
+}
+
+.hud-value-lg {
+    font-family: var(--font-mono);
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    color: #00e5ff;
+    text-shadow: 0 0 10px rgba(0, 229, 255, 0.5), 0 0 20px rgba(0, 229, 255, 0.2);
 }
 
 /* Leaflet overrides for dark theme */
@@ -83,4 +128,129 @@ body {
 
 .pulse-cyan {
     animation: pulse-cyan 2s ease-in-out infinite;
+}
+
+/* ISS marker pulse */
+@keyframes pulse-marker {
+
+    0%,
+    100% {
+        box-shadow: 0 0 6px #00e5ff, 0 0 12px rgba(0, 229, 255, 0.3);
+        transform: scale(1);
+    }
+
+    50% {
+        box-shadow: 0 0 16px #00e5ff, 0 0 32px rgba(0, 229, 255, 0.5);
+        transform: scale(1.1);
+    }
+}
+
+/* Coord flash animation */
+@keyframes coord-flash {
+    0% {
+        border-color: rgba(0, 229, 255, 0.8);
+        box-shadow: 0 0 12px rgba(0, 229, 255, 0.4);
+    }
+
+    100% {
+        border-color: rgba(6, 182, 212, 0.2);
+        box-shadow: 0 4px 6px rgba(0, 229, 255, 0.06);
+    }
+}
+
+.coord-flash {
+    animation: coord-flash 0.6s ease-out;
+}
+
+/* Glow text */
+.text-glow-cyan {
+    text-shadow: 0 0 8px rgba(0, 229, 255, 0.5), 0 0 16px rgba(0, 229, 255, 0.3);
+}
+
+/* Fade in */
+@keyframes fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-fade-in {
+    animation: fade-in 0.4s ease-out;
+}
+
+/* Smooth border glow on panels */
+@keyframes border-glow {
+
+    0%,
+    100% {
+        border-color: rgba(6, 182, 212, 0.15);
+    }
+
+    50% {
+        border-color: rgba(6, 182, 212, 0.35);
+    }
+}
+
+.border-glow {
+    animation: border-glow 3s ease-in-out infinite;
+}
+
+/* ─── Scrollbar ─── */
+::-webkit-scrollbar {
+    width: 4px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 2px;
+}
+
+/* ─── Loading Overlay ─── */
+#app-loader {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #000;
+    transition: opacity 0.8s ease-out;
+}
+
+#app-loader.loaded {
+    opacity: 0;
+    pointer-events: none;
+}
+
+#app-loader .spinner {
+    width: 52px;
+    height: 52px;
+    border: 3px solid rgba(0, 229, 255, 0.15);
+    border-top-color: #00e5ff;
+    border-radius: 50%;
+    animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* ─── UI Toggle (H key) ─── */
+.ui-hidden>*:not(canvas):not([data-globe]):not([data-map]):not(#app-loader) {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transition: opacity 0.3s ease;
 }

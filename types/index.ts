@@ -91,6 +91,38 @@ export interface WindPoint {
     direction: number;
 }
 
+/* ─── 5 Günlük Tahmin ─── */
+export interface ForecastDay {
+    date: string;        // 'YYYY-MM-DD'
+    weatherCode: number;
+    tempMax: number;
+    tempMin: number;
+    precipitationSum: number;
+}
+
+/* ─── Location Detail (clicked location) ─── */
+export interface LocationDetail {
+    latitude: number;
+    longitude: number;
+    locationName: string;
+    utcTime: string;
+    localTime: string;
+    timezone: string;
+    temperature: number;
+    feelsLike: number;
+    humidity: number;
+    precipitation: number;
+    cloudCover: number;
+    windSpeed: number;
+    windDirection: number;
+    windGust: number;
+    pressure: number;
+    visibility: number;
+    uvIndex: number;
+    weatherCode: number;
+    forecast?: ForecastDay[];
+}
+
 export const WMO_CODES: Record<number, { label: string; icon: string }> = {
     0: { label: 'Açık', icon: '☀️' },
     1: { label: 'Genellikle Açık', icon: '🌤️' },
