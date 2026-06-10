@@ -16,6 +16,20 @@ export interface ModuleState {
     iss: boolean;
     marine: boolean;
     clouds: boolean;
+    performanceMode: boolean;
+    tileGroup: TileGroup;
+}
+
+export type BaseStyle = 'satellite' | 'street' | 'topo';
+export type TileGroup = 'none' | 'precipitation' | 'temperature' | 'clouds' | 'wind';
+
+export interface ModuleGroups {
+    baseStyle: BaseStyle;
+    tileGroup: TileGroup;
+}
+
+export interface TerminatorPolygon {
+    ring: [number, number][];
 }
 
 export type ModuleKey = keyof ModuleState;

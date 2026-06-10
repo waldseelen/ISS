@@ -39,11 +39,12 @@ export default function SearchBar({ onSelect }: Props) {
             if (abortRef.current) abortRef.current.abort();
             abortRef.current = new AbortController();
             try {
-                const cities = await searchCity(value);
+                const cities = await searchCity(value, abortRef.current.signal);
                 setResults(cities);
                 setOpen(cities.length > 0);
                 setStatus(cities.length > 0 ? 'success' : 'error');
-            } catch {
+            } catch (err: any) {
+                if (err.name === 'AbortError') return;
                 setResults([]);
                 setStatus('error');
             }

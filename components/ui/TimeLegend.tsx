@@ -8,8 +8,8 @@ interface Props {
 
 export default function TimeLegend({ modules }: Props) {
     return (
-        <div className="fixed top-20 right-4 z-40 flex flex-col gap-2">
-            {modules.precipitation && (
+        <div className="fixed bottom-20 left-4 z-40 flex flex-col gap-2">
+            {modules.tileGroup === 'precipitation' && (
                 <div className="glass rounded-xl p-2 text-xs text-cyan-100">
                     <p className="hud-label hud-label-cyan mb-1">Yağış (mm/h)</p>
                     <div className="flex items-center gap-1">
@@ -24,7 +24,7 @@ export default function TimeLegend({ modules }: Props) {
                     </div>
                 </div>
             )}
-            {modules.temperature && (
+            {modules.tileGroup === 'temperature' && (
                 <div className="glass rounded-xl p-2 text-xs text-cyan-100">
                     <p className="hud-label hud-label-cyan mb-1">Sıcaklık (°C)</p>
                     <div className="flex items-center gap-1">
@@ -38,6 +38,19 @@ export default function TimeLegend({ modules }: Props) {
                         <span>20-30</span>
                         <div className="w-3 h-3 rounded bg-[#ff0000]" />
                         <span>30+</span>
+                    </div>
+                </div>
+            )}
+            {modules.tileGroup === 'clouds' && (
+                <div className="glass rounded-xl p-2 text-xs text-cyan-100">
+                    <p className="hud-label hud-label-cyan mb-1">Bulut Örtüsü</p>
+                    <div className="flex items-center gap-1">
+                        <div className="w-3 h-3 rounded bg-cyan-100/20" />
+                        <span>Az</span>
+                        <div className="w-3 h-3 rounded bg-cyan-100/50" />
+                        <span>Orta</span>
+                        <div className="w-3 h-3 rounded bg-cyan-100/80" />
+                        <span>Yoğun</span>
                     </div>
                 </div>
             )}

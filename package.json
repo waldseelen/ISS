@@ -9,22 +9,20 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@types/leaflet": "^1.9.21",
     "clsx": "^2.1.1",
-    "leaflet": "^1.9.4",
+    "deck.gl": "^9.3.2",
+    "maplibre-gl": "^5.24.0",
     "next": "^16.1.6",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "suncalc": "^1.9.0",
-    "tailwind-merge": "^2.4.0",
-    "three": "^0.183.2"
+    "tailwind-merge": "^2.4.0"
   },
   "devDependencies": {
     "@types/node": "^20",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@types/suncalc": "^1.9.0",
-    "@types/three": "^0.183.1",
     "autoprefixer": "^10.0.1",
     "eslint": "^10.0.2",
     "eslint-config-next": "^16.1.6",

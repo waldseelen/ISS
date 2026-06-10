@@ -14,12 +14,13 @@ export default function CoordDisplay({ lat, lon }: Props) {
     useEffect(() => {
         if (lat === null || lon === null) return;
         const key = `${lat.toFixed(4)},${lon.toFixed(4)}`;
-        if (key !== prevRef.current && elRef.current) {
-            prevRef.current = key;
-            elRef.current.classList.remove('coord-flash');
-            void elRef.current.offsetWidth; // force reflow
-            elRef.current.classList.add('coord-flash');
-        }
+        if (key === prevRef.current || !elRef.current) return;
+        prevRef.current = key;
+        const el = elRef.current;
+        el.classList.remove('coord-flash');
+        el.getAnimations().forEach(a => a.cancel());
+        void el.offsetWidth;
+        el.classList.add('coord-flash');
     }, [lat, lon]);
 
     if (lat === null || lon === null) return null;

@@ -7,7 +7,7 @@ export default function ScaleBar() {
             aria-label="Scale bar"
         >
             <div className="flex items-center gap-2">
-                <div className="w-16 h-0.5 bg-gradient-to-r from-cyan-400 to-cyan-600 rounded" />
+                <div className="w-16 h-0.5 bg-gradient-to-r from-cyan-300 to-cyan-500 rounded" />
                 <span>~500 km</span>
             </div>
         </div>

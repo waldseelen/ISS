@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import 'maplibre-gl/dist/maplibre-gl.css';
+import { ToastProvider } from '@/components/ui/Toast';
 
 export const metadata: Metadata = {
     title: 'Earth Tracker',
@@ -22,7 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     rel="stylesheet"
                 />
             </head>
-            <body className="bg-black overflow-hidden">{children}</body>
+            <body className="bg-black overflow-hidden"><ToastProvider>{children}</ToastProvider></body>
         </html>
     );
 }
