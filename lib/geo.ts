@@ -1,4 +1,5 @@
 import type { ForecastDay, LocationDetail } from '@/types';
+import { fetchWithRetry, safeNum, safeStr } from './fetchWithRetry';
 
 const FETCH_OPTS: RequestInit = { mode: 'cors', credentials: 'omit' };
 
@@ -19,22 +20,20 @@ export async function reverseGeocode(
     lon: number,
 ): Promise<{ name: string; timezone: string; country: string }> {
     try {
-        const [tzRes, nomRes] = await Promise.all([
-            fetch(
+        const [tzJson, nom] = await Promise.all([
+            fetchWithRetry<Record<string, any>>(
                 `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m&timezone=auto`,
-                FETCH_OPTS,
+                { maxRetries: 2 },
             ),
-            fetch(
+            fetchWithRetry<Record<string, any>>(
                 `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1`,
-                FETCH_OPTS,
+                { maxRetries: 2, baseDelay: 1000 },
             ),
         ]);
 
-        const tzJson = await tzRes.json();
-        const timezone = (tzJson.timezone as string | undefined) ?? 'UTC';
+        const timezone = safeStr(tzJson?.timezone, 'UTC');
 
-        const nom = await nomRes.json();
-        const addr = (nom.address ?? {}) as Record<string, string>;
+        const addr = (nom?.address ?? {}) as Record<string, string>;
         // Sadece idari şehir birimleri – kasaba/köy/mahalle dâhil değil
         const city =
             addr.city ||
@@ -42,9 +41,9 @@ export async function reverseGeocode(
             addr.county ||
             addr.state_district ||
             addr.state ||
-            nom.name ||
+            nom?.name ||
             formatCoordName(lat, lon);
-        const country = addr.country ?? '';
+        const country = safeStr(addr.country);
 
         return { name: city, timezone, country };
     } catch {
@@ -121,25 +120,20 @@ export async function fetchLocationDetail(lat: number, lon: number): Promise<Loc
 
 /** 5 günlük günlük tahmin – Open-Meteo daily endpoint */
 async function fetchForecast(lat: number, lon: number): Promise<ForecastDay[]> {
-    try {
-        const url =
-            `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
-            `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum` +
-            `&timezone=auto&forecast_days=5`;
-        const res = await fetch(url, FETCH_OPTS);
-        if (!res.ok) return [];
-        const json = await res.json();
-        const d = json.daily;
-        return ((d?.time ?? []) as string[]).map((date, i) => ({
-            date,
-            weatherCode: (d.weather_code?.[i] as number) ?? 0,
-            tempMax: Math.round((d.temperature_2m_max?.[i] as number) ?? 0),
-            tempMin: Math.round((d.temperature_2m_min?.[i] as number) ?? 0),
-            precipitationSum: Math.round(((d.precipitation_sum?.[i] as number) ?? 0) * 10) / 10,
-        }));
-    } catch {
-        return [];
-    }
+    const url =
+        `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+        `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum` +
+        `&timezone=auto&forecast_days=5`;
+    const json = await fetchWithRetry<Record<string, any>>(url);
+    if (!json?.daily) return [];
+    const d = json.daily;
+    return ((d?.time ?? []) as string[]).map((date, i) => ({
+        date,
+        weatherCode: safeNum(d.weather_code?.[i]),
+        tempMax: Math.round(safeNum(d.temperature_2m_max?.[i])),
+        tempMin: Math.round(safeNum(d.temperature_2m_min?.[i])),
+        precipitationSum: Math.round(safeNum(d.precipitation_sum?.[i]) * 10) / 10,
+    }));
 }
 
 interface DetailedWeather {
@@ -158,41 +152,38 @@ interface DetailedWeather {
 }
 
 async function fetchDetailedWeather(lat: number, lon: number): Promise<DetailedWeather> {
-    try {
-        const url =
-            `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
-            `&current=temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,cloud_cover,` +
-            `wind_speed_10m,wind_direction_10m,wind_gusts_10m,surface_pressure,weather_code` +
-            `&daily=uv_index_max,visibility_mean&timezone=auto&forecast_days=1`;
-        const res = await fetch(url, FETCH_OPTS);
-        if (!res.ok) throw new Error('Weather fetch failed');
-        const json = await res.json();
-        const c = json.current;
-        const d = json.daily;
-        return {
-            temperature: c.temperature_2m ?? 0,
-            feelsLike: c.apparent_temperature ?? 0,
-            humidity: c.relative_humidity_2m ?? 0,
-            precipitation: c.precipitation ?? 0,
-            cloudCover: c.cloud_cover ?? 0,
-            windSpeed: c.wind_speed_10m ?? 0,
-            windDirection: c.wind_direction_10m ?? 0,
-            windGust: c.wind_gusts_10m ?? 0,
-            pressure: c.surface_pressure ?? 0,
-            visibility: d?.visibility_mean?.[0] ? Math.round(d.visibility_mean[0] / 1000) : 10,
-            uvIndex: d?.uv_index_max?.[0] ?? 0,
-            weatherCode: c.weather_code ?? 0,
-        };
-    } catch {
+    const url =
+        `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+        `&current=temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,cloud_cover,` +
+        `wind_speed_10m,wind_direction_10m,wind_gusts_10m,surface_pressure,weather_code` +
+        `&daily=uv_index_max,visibility_mean&timezone=auto&forecast_days=1`;
+    const json = await fetchWithRetry<Record<string, any>>(url);
+    if (!json?.current) {
         return {
             temperature: 0, feelsLike: 0, humidity: 0, precipitation: 0,
             cloudCover: 0, windSpeed: 0, windDirection: 0, windGust: 0,
             pressure: 1013, visibility: 10, uvIndex: 0, weatherCode: 0,
         };
     }
+    const c = json.current;
+    const d = json.daily;
+    return {
+        temperature: safeNum(c.temperature_2m),
+        feelsLike: safeNum(c.apparent_temperature),
+        humidity: safeNum(c.relative_humidity_2m),
+        precipitation: safeNum(c.precipitation),
+        cloudCover: safeNum(c.cloud_cover),
+        windSpeed: safeNum(c.wind_speed_10m),
+        windDirection: safeNum(c.wind_direction_10m),
+        windGust: safeNum(c.wind_gusts_10m),
+        pressure: safeNum(c.surface_pressure, 1013),
+        visibility: d?.visibility_mean?.[0] ? Math.round(safeNum(d.visibility_mean[0]) / 1000) : 10,
+        uvIndex: safeNum(d?.uv_index_max?.[0]),
+        weatherCode: safeNum(c.weather_code),
+    };
 }
 
-export interface ISSPass {
+export interface ISSUpcomingPass {
     time: string;
     durationSec: number;
     maxElevation: number;
@@ -225,10 +216,10 @@ export function predictUpcomingPasses(
     prediction: { lat: number; lon: number }[],
     maxPasses = 3,
     periodMin = 92.68,
-): ISSPass[] {
+): ISSUpcomingPass[] {
     if (prediction.length < 2) return [];
 
-    const passes: ISSPass[] = [];
+    const passes: ISSUpcomingPass[] = [];
     const stepMin = periodMin / prediction.length;
     let inPass = false;
     let passStartIdx = 0;

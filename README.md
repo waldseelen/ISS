@@ -4,105 +4,102 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Next.js-16-000000?style=flat-square&logo=next.js&logoColor=white" />
-  <img src="https://img.shields.io/badge/Three.js-0.183-000000?style=flat-square&logo=three.js&logoColor=white" />
   <img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black" />
   <img src="https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white" />
-  <img src="https://img.shields.io/badge/Tailwind-3.4-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white" />
-  <img src="https://img.shields.io/badge/Deck.gl-9-199900?style=flat-square" />
+  <img src="https://img.shields.io/badge/WebGL2-Deck.gl_9-199900?style=flat-square" />
   <img src="https://img.shields.io/badge/MapLibre-5-1a73e8?style=flat-square" />
   <img src="https://img.shields.io/badge/API_Key-Gerekmez!-00e676?style=flat-square" />
 </p>
 
-# 🌍 Earth Tracker
+# 🌍 Earth Tracker: Entegre 2D/3D Coğrafi Bilgi Sistemi (CBS) Portal
 
-3D interaktif dünya — ISS takibi, hava durumu, hava kalitesi, gece/gündüz sınırı, yörünge tahmini, yükselti profili, iklim anomalisi.
+**Earth Tracker**, uzay boşluğundaki uydulardan kapınızın önündeki sokağa kadar, yeryüzünün anlık nabzını tutmanızı sağlayan WebGL2 destekli interaktif bir dünya simülasyonu ve coğrafi analiz aracıdır.
 
-## Kurulum
+**Hiçbir API anahtarı (API Key) veya üyelik gerektirmeden**, doğrudan tarayıcınızın grafik işlemcisini (GPU) kullanarak çalışan modern bir CBS visualizer'dır.
 
+---
+
+## ✨ Neler Yapabilirsiniz? (Temel Özellikler)
+
+### 🛰️ 1. ISS Takibi, Canlı Yayın ve Yörünge Tahmini
+* **Anlık Telemetri:** Uluslararası Uzay İstasyonu'nun (ISS) anlık enlem, boylam, hız (km/h) ve yükseklik (km) verilerini saniyelik güncellemelerle takip edin.
+* **NASA Canlı Yayını:** ISS kameralarından doğrudan dünyaya aktarılan canlı HD video yayınını panel içerisinden izleyin.
+* **Görünürlük Hesaplayıcı (Pass Predictor):** SGP4 yörünge mekaniği çözücüsü sayesinde, seçtiğiniz herhangi bir konum üzerinde önümüzdeki 24 saat içinde gerçekleşecek ufkunuza açık (Elevation > 10°) geçişlerin saatlerini, zirve açılarını ve yönlerini önceden hesaplayın.
+* **Astronomik Zamanlar:** Seçtiğiniz koordinatın veya ISS'in güncel boylamına göre anlık güneş açısını temsil eden **Yerel Ortalama Güneş Saatini (LMST)** izleyin.
+
+### 🗻 2. Topografik Arazi Kesit Analizi
+* Harita üzerinde tıkladığınız herhangi bir noktanın çevresindeki arazi yapısını inceleyin.
+* Merkez noktanın 10 km batısından 10 km doğusuna uzanan hat boyunca 15 farklı ölçüm noktasıyla oluşturulan **Topografik Yükseklik Profili SVG Grafiği** sayesinde dağlık ve engebeli yapıları kesit analizi olarak inceleyin.
+
+### 📊 3. Tarihsel İklim Anomalileri
+* Seçtiğiniz konumun güncel hava sıcaklığı değerini görmekle kalmayın, bu değerin son 3 yılın ilgili ayına ait geçmiş arşiv verilerinin ortalamasından ne kadar saptığını (sıcaklık anomalisi) hesaplayın.
+* Kesik çizgilerle çizilen tarihsel iklim normu ile güncel ölçümü karşılaştıran SVG grafik arayüzü sayesinde küresel ısınma sapmalarını anlık takip edin.
+
+### 🌪️ 4. Windy Tarzı Dinamik Parçacık Akışları
+* Rüzgar akıntılarını ve yağış hareketlerini harita üzerinde akan binlerce GPU parçacığı ile simüle edin.
+* Akış çizgilerinin yoğunluğunu, kalınlığını, hızını ve kuyruk uzunluğunu HUD kontrol panelinden dilediğiniz gibi özelleştirin.
+* Mobil ve düşük donanımlı cihazlar için tek tıkla kare hızını sabitleyip parçacık yükünü hafifleten **Performans Modunu** aktif edin.
+
+### 🌓 5. Gece/Gündüz Sınırı ve Alacakaranlık Bandları
+* Dünya üzerindeki fiziksel gece/gündüz sınırını (Terminator) yumuşak geçişli alacakaranlık bandlarıyla (Civil, Nautical, Astronomical twilight) izleyin.
+* Gece olan bölgelerde NASA'nın *Black Marble* uydu haritası üzerinden şehirlerin gece ışıklarını açıp kapatın.
+
+### 🌊 6. Entegre Hava ve Deniz Durumu Katmanları
+* Sıcaklık, bulut yoğunluğu ve yağış katmanlarını (NASA GIBS ve RainViewer) harita üzerine serin.
+* Denizcilik (Marine) modülünü açarak okyanus dalga yüksekliklerini ve su sıcaklığı (SST) skalasını haritada dinamik veri noktalarıyla gözlemleyin.
+* **Katman Sıralama Arayüzü:** Aktif ettiğiniz meteorolojik katmanların render sırasını (Z-index) sürükle-bırak/yukarı-aşağı kontrolleriyle anlık olarak değiştirerek Z-fighting yırtılmalarını engelleyin.
+
+### 📌 7. Çevrimdışı Çalışma ve Favori Yer İmleri
+* Sık takip ettiğiniz konumları favori yıldız butonuyla kaydedin. Kayıtlı yer imlerinize tıklayarak haritanın o konuma otomatik uçmasını sağlayın.
+* **Service Worker (sw.js v3) Gücü:** Harita uydu karoları ve API yanıtları akıllı stratejilerle cache'lenir; internet bağlantınız kopsa veya zayıflasa dahi daha önce gezindiğiniz haritalar ve veriler görüntülenmeye devam eder.
+
+---
+
+## 🎧 Siber-Akustik Ses Geri Bildirimleri
+
+Uygulama, etkileşim hissini artırmak amacıyla Web Audio API tabanlı siber-akustik sentez sesler barındırır:
+* 🗺️ Haritada arama başarılı olduğunda veya yer imlerine uçuş başladığında onay sinyali (`playBeep('search')`).
+* 🛰️ ISS, seçtiğiniz konuma **1000 km veya daha yakın** bir mesafeye girdiğinde 12 saniyede bir çalan radar arama telemetrisi beep tonları (`playBeep('radar')`).
+
+---
+
+## 🚀 Hızlı Başlangıç
+
+### Gereksinimler
+* [Node.js](https://nodejs.org/) (v18+)
+
+### Kurulum adımları
+1. Proje dizininde terminali açın:
+   ```bash
+   npm install
+   ```
+2. Geliştirici sunucusunu başlatın:
+   ```bash
+   npm run dev
+   ```
+3. Tarayıcınızda şu adresi açın: **[http://localhost:3000](http://localhost:3000)**
+
+### Canlı Dağıtım (Production Build & Vercel)
+Uygulamayı derlemek veya canlıya almak için:
 ```bash
-npm install
-npm run dev
-```
+# Yerel derleme testi
+cmd /c npm run build
 
-Tarayıcıda aç: [http://localhost:3000](http://localhost:3000)
-
-## Özellikler
-
-| Katman | Kaynak | API Key? |
-|---|---|---|
-| 3D Dünya (deck.gl GlobeView) | Esri World Imagery | ❌ |
-| 2D Harita (MapLibre) | CartoDB Dark Matter | ❌ |
-| Hava Durumu | Open-Meteo | ❌ |
-| Hava Kalitesi | Open-Meteo Air Quality | ❌ |
-| Deniz Durumu | Open-Meteo Marine | ❌ |
-| Rüzgar Parçacıkları | Open-Meteo + GPU TripsLayer | ❌ |
-| Yağış Radarı | RainViewer | ❌ |
-| Sıcaklık / Bulut | NASA GIBS | ❌ |
-| Gece Işıkları | NASA Black Marble | ❌ |
-| Gündüz/Gece Sınırı | SunCalc + Polygon overlay | ❌ |
-| ISS Takibi | wheretheiss.at | ❌ |
-| ISS Yörünge Tahmini | Kepler 3. yasa hesaplaması | ❌ |
-| Şehir Arama | Open-Meteo Geocoding | ❌ |
-| Otomatik 3D↔2D Geçiş | Zoom eşiği (5.5× / 3.5×) | — |
-
-**Hiçbir API key gerekmez.**
-
-## Deploy (Vercel)
-
-```bash
+# Vercel ile anında dağıtım
 npx vercel --prod
 ```
 
-## Proje Yapısı
+---
 
-```
-earth-tracker/
-├── app/
-│   ├── page.tsx               # Ana sayfa — orchestration + auto 3D↔2D
-│   ├── layout.tsx             # Root layout (ToastProvider)
-│   └── globals.css            # Global stiller, animasyonlar
-├── components/
-│   ├── globe/GlobeCanvas.tsx  # Deck.gl GlobeView (3D)
-│   ├── map/MapCanvas.tsx      # MapLibre + Deck.gl overlay (2D)
-│   ├── panels/                # WeatherPanel, ISSPanel, LocationDetailPanel
-│   └── ui/                    # Toolbar, SearchBar, CoordDisplay, ScaleBar, TimeLegend, Toast, ErrorBoundary
-├── hooks/
-│   ├── useISS.ts              # ISS polling + Kepler tahmini + antimeridian split
-│   ├── useModules.ts          # Modül toggle state + mutex grupları
-│   └── useSun.ts              # Güneş pozisyon + terminator poligonu
-├── lib/
-│   ├── api.ts                 # Open-Meteo, ISS, geocoding fetch'leri
-│   ├── geo.ts                 # Reverse geocoding, location detail, ISS pass prediction
-│   ├── map.ts                 # Wind IDW + GPU particle path generator
-│   ├── tiles.ts               # Tile URL şablonları
-│   ├── pulse.ts               # Paylaşılan pulse matematiği (cursor/ISS ayrımı)
-│   ├── canvasStyle.ts         # 2D/3D base style + auto-switch eşikleri
-│   └── audio.ts               # Web Audio API telemetry beep'leri
-└── types/
-    └── index.ts               # TypeScript interface'leri
-```
+## 🛠️ Teknik Altyapı
+* **Framework:** Next.js 16.2 (App Router) & React 19
+* **Dinamik 3D Render:** Deck.gl 9 (GlobeView, TripsLayer, ScatterplotLayer) & Three.js 0.183
+* **2D Harita Altlığı:** MapLibre GL 5 (CartoDB Dark Matter)
+* **Hesaplama Motoru:** SGP4 Orbit Mechanics & SunCalc
+* **Veri API'leri:** Open-Meteo (Hava, Deniz, Arazi, Arşiv, Geocoding), wheretheiss.at, NASA GIBS, RainViewer
 
-## Mimarî Notlar
+---
 
-- **Mutex toggle grupları:** Base style (satellite/street/topo) ve tile grupları (precipitation/temperature/clouds) birbirini dışlar — UI'da `●` ile aktif olanı işaretlenir.
-- **Paylaşılan pulse:** `lib/pulse.ts` cursor (0.5 Hz) ve ISS (0.85 Hz) için farklı faz/frekanslar sunar, böylece iki nokta aynı anda pulse etmez.
-- **Antimeridian split:** `splitTrailByAntimeridian` ISS trail'ini -180/+180 sınırında otomatik böler, "kırık gerdanlık" önlenir.
-- **Auto 3D↔2D:** Globe zoom > 5.5× → 2D'ye, 2D zoom < 3.5× → 3D'ye, 1.2 sn gecikme kilidi ile.
-- **Performance Mode:** Aktifken parçacık sayısı 1800 → 600'e düşer (mobile için).
-- **Cursor fade:** `cursorFadeRef` ile seçim pin'i mount/unmount fade (300 ms) ile görünür/kaybolur.
-- **Terminator:** SunCalc + dec tabanlı poligon, 3D ve 2D'de aynı kaynaktan çizilir.
+## 📜 Lisans
 
-## Veri Kaynakları
-
-| Kaynak | Kullanım | Maliyet |
-|---|---|---|
-| [Open-Meteo](https://open-meteo.com/) | Hava durumu, deniz, geocoding, rüzgar | 🆓 |
-| [NASA GIBS](https://gibs.earthdata.nasa.gov/) | Uydu, bulut, sıcaklık, gece ışıkları | 🆓 |
-| [RainViewer](https://www.rainviewer.com/) | Yağış radarı | 🆓 |
-| [Open Notify](https://wheretheiss.at/) | ISS konumu | 🆓 |
-| [CartoDB Basemaps](https://carto.com/basemaps) | 2D harita altlığı | 🆓 |
-| [Esri World Imagery](https://www.arcgis.com/) | 3D uydu altlığı | 🆓 |
-
-## Lisans
-
-MIT
+Bu proje **MIT** lisansı altında lisanslanmıştır. Serbestçe dağıtılabilir, değiştirilebilir ve ticari/bireysel projelerde kullanılabilir.

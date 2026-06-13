@@ -1,6 +1,6 @@
 'use client';
 
-import { getWeatherInfo, windDirLabel, t, fetchElevationProfile, getLanguage } from '@/lib/api';
+import { getWeatherInfo, windDirLabel, t, fetchElevationProfile, fetchClimatology, getLanguage } from '@/lib/api';
 import type { ForecastDay, LocationDetail } from '@/types';
 import { useState, useEffect } from 'react';
 import { playBeep } from '@/lib/audio';
@@ -9,6 +9,7 @@ interface Props {
     location: LocationDetail;
     isFetching?: boolean;
     onClose: () => void;
+    onBookmarkChange?: () => void;
 }
 
 const DAYS_TR = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
@@ -32,7 +33,7 @@ function ForecastCard({ day }: { day: ForecastDay }) {
     );
 }
 
-export default function LocationDetailPanel({ location, isFetching = false, onClose }: Props) {
+export default function LocationDetailPanel({ location, isFetching = false, onClose, onBookmarkChange }: Props) {
     const info = getWeatherInfo(location.weatherCode);
     const ns = location.latitude >= 0 ? 'N' : 'S';
     const ew = location.longitude >= 0 ? 'E' : 'W';
@@ -40,8 +41,65 @@ export default function LocationDetailPanel({ location, isFetching = false, onCl
 
     const [elevations, setElevations] = useState<number[] | null>(null);
     const [loadingElev, setLoadingElev] = useState(false);
+    
+    // Faz 4 / Madde 3: Real climatology data from Open-Meteo Archive
+    const [climatology, setClimatology] = useState<{ monthlyAvg: number; history: number[] } | null>(null);
+    const [loadingClim, setLoadingClim] = useState(false);
 
-    // ── Load Elevation Profile slice for terrain profiling ──
+    // Yer İmleri State ve Kontrolleri
+    const [isBookmarked, setIsBookmarked] = useState(false);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        try {
+            const saved = localStorage.getItem('earth_tracker_bookmarks');
+            if (saved) {
+                const list = JSON.parse(saved);
+                const found = list.some((b: any) => 
+                    Math.abs(b.latitude - location.latitude) < 0.0001 && 
+                    Math.abs(b.longitude - location.longitude) < 0.0001
+                );
+                setIsBookmarked(found);
+            } else {
+                setIsBookmarked(false);
+            }
+        } catch {
+            setIsBookmarked(false);
+        }
+    }, [location.latitude, location.longitude]);
+
+    const toggleBookmark = () => {
+        if (typeof window === 'undefined') return;
+        playBeep('click');
+        try {
+            const saved = localStorage.getItem('earth_tracker_bookmarks');
+            let list = saved ? JSON.parse(saved) : [];
+            const idx = list.findIndex((b: any) => 
+                Math.abs(b.latitude - location.latitude) < 0.0001 && 
+                Math.abs(b.longitude - location.longitude) < 0.0001
+            );
+            
+            if (idx > -1) {
+                list.splice(idx, 1);
+                setIsBookmarked(false);
+            } else {
+                const bookmarkId = `${location.latitude.toFixed(4)},${location.longitude.toFixed(4)}`;
+                list.push({
+                    id: bookmarkId,
+                    name: location.locationName,
+                    latitude: location.latitude,
+                    longitude: location.longitude
+                });
+                setIsBookmarked(true);
+            }
+            localStorage.setItem('earth_tracker_bookmarks', JSON.stringify(list));
+            if (onBookmarkChange) {
+                onBookmarkChange();
+            }
+        } catch {}
+    };
+
+    // ── Load Elevation Profile slice for terrain profiling (15 points) ──
     useEffect(() => {
         setLoadingElev(true);
         fetchElevationProfile(location.latitude, location.longitude)
@@ -52,33 +110,29 @@ export default function LocationDetailPanel({ location, isFetching = false, onCl
             .finally(() => setLoadingElev(false));
     }, [location.latitude, location.longitude]);
 
+    // ── Load Climatology Anomaly from Open-Meteo Archive ──
+    useEffect(() => {
+        setLoadingClim(true);
+        fetchClimatology(location.latitude, location.longitude)
+            .then(data => {
+                setClimatology(data);
+            })
+            .catch(() => {})
+            .finally(() => setLoadingClim(false));
+    }, [location.latitude, location.longitude]);
+
     // Play subtle high-tech click sound when panel mounts
     useEffect(() => {
         playBeep('radar');
     }, [location.locationName]);
 
-    // Climatology calculator (hemisphere-based seasonal curve approximation)
-    const getClimatologyData = () => {
-        const isNorthern = location.latitude >= 0;
-        const currentMonth = new Date().getMonth(); // 0-11
-        const baseline = isNorthern ? 16 : 14;
-        const amplitude = isNorthern ? 12 : -10;
-        
-        // Generate monthly averages (12 months)
-        return Array.from({ length: 12 }, (_, m) => {
-            const angle = ((m - 3) * Math.PI) / 6; // April peak for N, Oct peak for S
-            const avgTemp = Math.round(baseline + amplitude * Math.sin(angle));
-            return { month: m, temp: avgTemp };
-        });
-    };
-
-    const clim = getClimatologyData();
     const currentMonthIndex = new Date().getMonth();
-    const climAvgToday = clim[currentMonthIndex].temp;
-    const anomaly = Math.round(location.temperature - climAvgToday);
-    const isAnomalyHot = anomaly > 0;
+    const monthsTR = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
+    const monthsEN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const lang = getLanguage();
+    const activeMonthLabel = lang === 'tr' ? monthsTR[currentMonthIndex] : monthsEN[currentMonthIndex];
 
-    // SVG scaling helper for terrain chart
+    // SVG scaling helper for terrain chart (dynamic 15 points center)
     const renderElevationSVG = () => {
         if (!elevations || elevations.length === 0) return null;
         const width = 310;
@@ -96,8 +150,8 @@ export default function LocationDetailPanel({ location, isFetching = false, onCl
         const pathD = `M 0,${height} ` + points.map(p => `L ${p.x},${p.y}`).join(' ') + ` L ${width},${height} Z`;
         const lineD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ');
 
-        // The middle point (index 2) is the exact clicked coordinate
-        const centerPin = points[2];
+        // The middle point (index 7 for 15 points) is the exact clicked coordinate
+        const centerPin = points[Math.floor(points.length / 2)];
 
         return (
             <div className="relative border border-cyan-900/30 rounded-xl p-2 bg-cyan-950/20">
@@ -106,7 +160,7 @@ export default function LocationDetailPanel({ location, isFetching = false, onCl
                     <span className="text-cyan-400 font-semibold">{centerPin.h}m</span>
                 </p>
                 <div className="relative h-[45px] w-[310px]">
-            <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="xMidYMid meet" className="overflow-visible">
+                    <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="xMidYMid meet" className="overflow-visible">
                         <defs>
                             <linearGradient id={`terrainGrad-${centerPin.h.toFixed(0)}`} x1="0" y1="0" x2="0" y2="1">
                                 <stop offset="0%" stopColor="#22d3ee" stopOpacity="0.35" />
@@ -120,46 +174,46 @@ export default function LocationDetailPanel({ location, isFetching = false, onCl
                     </svg>
                 </div>
                 <div className="flex justify-between text-[8px] text-gray-500 font-mono mt-1">
-                    <span>-4km (Batı)</span>
+                    <span>-10km (Batı)</span>
                     <span className="text-cyan-400 font-semibold">{centerPin.h}m (Merkez)</span>
-                    <span>+4km (Doğu)</span>
+                    <span>+10km (Doğu)</span>
                 </div>
             </div>
         );
     };
 
-    // SVG scaling helper for Climatology anomaly chart
+    // SVG scaling helper for Climatology anomaly chart using real archive data
     const renderClimatologySVG = () => {
+        if (!climatology) return null;
+        
         const width = 310;
         const height = 45;
-        const temps = clim.map(c => c.temp);
+        const temps = climatology.history;
         const max = Math.max(...temps, location.temperature) + 3;
         const min = Math.min(...temps, location.temperature) - 3;
         const range = max - min || 1;
 
-        const points = clim.map((c, i) => {
-            const x = (i * width) / (clim.length - 1);
-            const y = height - ((c.temp - min) / range) * (height - 8) - 2;
-            return { x, y, ...c };
+        const points = temps.map((val, i) => {
+            const x = (i * width) / (temps.length - 1);
+            const y = height - ((val - min) / range) * (height - 8) - 2;
+            return { x, y, temp: val };
         });
 
         const lineD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ');
 
-        // Current month glowing point
-        const activePoint = points[currentMonthIndex];
+        // Current day active comparison point (middle point representing current timeline offset)
+        const activePoint = points[Math.floor(points.length / 2)];
         const currentY = height - ((location.temperature - min) / range) * (height - 8) - 2;
 
-        const monthsTR = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
-        const monthsEN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        const lang = getLanguage();
-        const activeMonthLabel = lang === 'tr' ? monthsTR[currentMonthIndex] : monthsEN[currentMonthIndex];
+        const anomaly = Math.round((location.temperature - climatology.monthlyAvg) * 10) / 10;
+        const isAnomalyHot = anomaly >= 0;
 
         return (
             <div className="relative border border-cyan-900/30 rounded-xl p-2 bg-cyan-950/20 mt-2">
                 <div className="text-[9px] font-mono flex justify-between uppercase tracking-wider mb-1">
-                    <span className="text-gray-500">📊 MEVSİMSEL İKLİM ANOMALİSİ</span>
+                    <span className="text-gray-500">📊 TARİHSEL İKLİM ANOMALİSİ</span>
                     <span className={`font-semibold ${isAnomalyHot ? 'text-red-400' : 'text-blue-400'}`}>
-                        {activeMonthLabel} Ort: {climAvgToday}°C ({anomaly >= 0 ? `+${anomaly}` : anomaly}°C)
+                        {activeMonthLabel} Ort: {climatology.monthlyAvg}°C ({anomaly >= 0 ? `+${anomaly}` : anomaly}°C)
                     </span>
                 </div>
                 <div className="relative h-[45px] w-[310px]">
@@ -174,7 +228,7 @@ export default function LocationDetailPanel({ location, isFetching = false, onCl
                     </svg>
                 </div>
                 <p className="text-[8px] text-gray-500 font-mono mt-1 text-center">
-                    Geniş çizgiler 30 yıllık mevsimsel normu, renkli nokta güncel ölçümü gösterir.
+                    Kesik çizgiler son 3 yılın {activeMonthLabel} ayı ortalamasını, renkli nokta güncel ölçümü gösterir.
                 </p>
             </div>
         );
@@ -191,7 +245,7 @@ export default function LocationDetailPanel({ location, isFetching = false, onCl
 
             {/* ── Başlık: şehir + ülke ── */}
             <div className="flex items-start justify-between mb-2.5">
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                     <p className="font-bold text-cyan-300 text-base leading-snug truncate font-sans-token">
                         {location.locationName}
                     </p>
@@ -200,13 +254,22 @@ export default function LocationDetailPanel({ location, isFetching = false, onCl
                         {Math.abs(location.longitude).toFixed(3)}°{ew}
                     </p>
                 </div>
-                <button
-                    onClick={onClose}
-                    className="ml-3 shrink-0 text-cyan-100/40 hover:text-cyan-200 transition-colors text-xl leading-none"
-                    aria-label="Close panel"
-                >
-                    ×
-                </button>
+                <div className="flex items-center gap-2 ml-3 shrink-0">
+                    <button
+                        onClick={toggleBookmark}
+                        className={`text-lg transition-colors leading-none ${isBookmarked ? 'text-amber-400 hover:text-amber-500' : 'text-cyan-100/40 hover:text-cyan-200'}`}
+                        aria-label={isBookmarked ? 'Favorilerden çıkar' : 'Favorilere ekle'}
+                    >
+                        {isBookmarked ? '★' : '☆'}
+                    </button>
+                    <button
+                        onClick={onClose}
+                        className="text-cyan-100/40 hover:text-cyan-200 transition-colors text-xl leading-none"
+                        aria-label="Close panel"
+                    >
+                        ×
+                    </button>
+                </div>
             </div>
 
             {/* ── Yerel saat ── */}

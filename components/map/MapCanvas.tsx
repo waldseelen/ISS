@@ -2,14 +2,15 @@
 
 import { generateWindPaths, getWindColor, type WindTrajectory } from '@/lib/map';
 import { AUTO_SWITCH_MAP_MAX_ZOOM, get2DStyleUrl } from '@/lib/canvasStyle';
-import { clampFrameDelta, CURSOR_PULSE_AMP, CURSOR_PULSE_BASE, CURSOR_PULSE_HZ, ISS_PULSE_AMP, ISS_PULSE_BASE, ISS_PULSE_HZ, pulseRadius } from '@/lib/pulse';
+import { CURSOR_PULSE_AMP, CURSOR_PULSE_BASE, CURSOR_PULSE_HZ, ISS_PULSE_AMP, ISS_PULSE_BASE, ISS_PULSE_HZ, pulseRadius } from '@/lib/pulse';
 import { splitTrailByAntimeridian } from '@/hooks/useISS';
-import type { BaseStyle, ISSData, ModuleState, TerminatorPolygon, WindPoint } from '@/types';
+import type { TwilightBand } from '@/hooks/useSun';
+import type { BaseStyle, ISSData, LayerOrderKey, MarineData, ModuleState, TerminatorPolygon, WindPoint } from '@/types';
 import { MapboxOverlay } from '@deck.gl/mapbox';
 import { TripsLayer } from '@deck.gl/geo-layers';
 import { PathLayer, ScatterplotLayer, PolygonLayer } from '@deck.gl/layers';
 import maplibregl from 'maplibre-gl';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 
 interface Props {
     modules: ModuleState;
@@ -18,9 +19,11 @@ interface Props {
     prediction: { lat: number; lon: number }[];
     flyTarget: { lat: number; lon: number } | null;
     wind?: WindPoint[];
+    marine?: MarineData | null;
     selectedCoord: { lat: number; lon: number } | null;
     baseStyle: BaseStyle;
     terminator: TerminatorPolygon;
+    twilightBands?: TwilightBand[];
     onZoomChange?: (zoom: number) => void;
     onMapClick?: (lat: number, lon: number) => void;
 }
@@ -32,9 +35,11 @@ export default function MapCanvas({
     prediction,
     flyTarget,
     wind = [],
+    marine,
     selectedCoord,
     baseStyle,
     terminator,
+    twilightBands = [],
     onZoomChange,
     onMapClick
 }: Props) {
@@ -43,27 +48,88 @@ export default function MapCanvas({
     const overlayRef = useRef<MapboxOverlay | null>(null);
     const [ready, setReady] = useState(false);
     const [windPaths, setWindPaths] = useState<WindTrajectory[]>([]);
-    const visibleRef = useRef(true);
-    const frameRef = useRef(0);
-    const cursorPhaseRef = useRef(0);
-    const issPhaseRef = useRef(Math.PI / 3);
-    const tripTimeRef = useRef(0);
-    const lastTickRef = useRef(0);
-    const cursorFadeRef = useRef(0);
-    const prevSelectedRef = useRef<{ lat: number; lon: number } | null>(null);
+
+    // Animation state driven by a single React timer
+    const [anim, setAnim] = useState({
+        tripTime: 0,
+        cursorPhase: 0,
+        issPhase: Math.PI / 3,
+        cursorFade: 0,
+    });
+
+    const ps = modules.particleSettings;
     const perfMode = modules.performanceMode;
+
+    const particleCount = useMemo(() => {
+        const base = perfMode ? 600 : 1800;
+        return Math.round(base * ps.density);
+    }, [perfMode, ps.density]);
 
     useEffect(() => {
         const needWind = modules.wind || modules.tileGroup === 'precipitation';
         if (wind.length > 0 && needWind) {
-            setWindPaths(generateWindPaths(wind, perfMode ? 600 : 1800, 12));
+            setWindPaths(generateWindPaths(wind, particleCount, 12));
         } else {
             setWindPaths([]);
         }
-    }, [wind, modules.wind, modules.tileGroup, perfMode]);
+    }, [wind, modules.wind, modules.tileGroup, particleCount]);
 
+    // Lightweight animation loop for Trips and Pulse properties
     useEffect(() => {
-        if (!containerRef.current || mapRef.current) return;
+        let frameId: number;
+        let lastTime = performance.now();
+
+        const loop = (now: number) => {
+            const delta = (now - lastTime) / 1000;
+            lastTime = now;
+
+            const clampedDelta = Math.min(delta, 0.1);
+
+            setAnim(prev => {
+                const nextTripTime = (prev.tripTime + clampedDelta * ps.speedMultiplier) % 12;
+                const nextCursorPhase = prev.cursorPhase + clampedDelta;
+                const nextIssPhase = prev.issPhase + clampedDelta;
+                let nextCursorFade = prev.cursorFade;
+
+                if (selectedCoord) {
+                    nextCursorFade = Math.min(1, prev.cursorFade + clampedDelta * 4);
+                } else {
+                    nextCursorFade = Math.max(0, prev.cursorFade - clampedDelta * 3);
+                }
+
+                return {
+                    tripTime: nextTripTime,
+                    cursorPhase: nextCursorPhase,
+                    issPhase: nextIssPhase,
+                    cursorFade: nextCursorFade,
+                };
+            });
+
+            if (perfMode) {
+                setTimeout(() => {
+                    frameId = requestAnimationFrame(loop);
+                }, 33);
+            } else {
+                frameId = requestAnimationFrame(loop);
+            }
+        };
+
+        frameId = requestAnimationFrame(loop);
+        return () => cancelAnimationFrame(frameId);
+    }, [ps.speedMultiplier, selectedCoord, perfMode]);
+
+    const buildMap = useCallback(() => {
+        if (!containerRef.current) return;
+
+        if (overlayRef.current && mapRef.current) {
+            try { mapRef.current.removeControl(overlayRef.current as any); } catch {}
+            try { overlayRef.current.finalize(); } catch {}
+            overlayRef.current = null;
+        }
+        if (mapRef.current) {
+            try { mapRef.current.remove(); } catch {}
+            mapRef.current = null;
+        }
 
         const map = new maplibregl.Map({
             container: containerRef.current,
@@ -73,6 +139,9 @@ export default function MapCanvas({
             minZoom: 1.5,
             maxZoom: 18,
             attributionControl: false,
+            dragRotate: false,
+            touchZoomRotate: true,
+            touchPitch: false,
         });
 
         const deckOverlay = new MapboxOverlay({
@@ -88,13 +157,6 @@ export default function MapCanvas({
             setReady(true);
         });
 
-        map.on('webglcontextlost', (e: any) => {
-            e.preventDefault();
-            console.warn('WebGL context lost on 2D Vector Map. Auto-recreating map resources...');
-            setReady(false);
-            setTimeout(() => setReady(true), 150);
-        });
-
         map.on('zoomend', () => {
             onZoomChange?.(map.getZoom());
         });
@@ -103,11 +165,16 @@ export default function MapCanvas({
             const { lat, lng } = e.lngLat;
             onMapClick?.(lat, lng);
         });
+    }, [baseStyle, onZoomChange, onMapClick]);
+
+    useEffect(() => {
+        if (!containerRef.current || mapRef.current) return;
+        buildMap();
 
         return () => {
-            if (overlayRef.current) {
-                map.removeControl(overlayRef.current as any);
-                overlayRef.current.finalize();
+            if (overlayRef.current && mapRef.current) {
+                try { mapRef.current.removeControl(overlayRef.current as any); } catch {}
+                try { overlayRef.current.finalize(); } catch {}
                 overlayRef.current = null;
             }
             if (mapRef.current) {
@@ -133,112 +200,122 @@ export default function MapCanvas({
         });
     }, [flyTarget, ready]);
 
-    useEffect(() => {
-        const onVisibilityChange = () => {
-            visibleRef.current = document.visibilityState === 'visible';
-            if (!visibleRef.current && frameRef.current) {
-                cancelAnimationFrame(frameRef.current);
-                frameRef.current = 0;
-            }
-        };
-        document.addEventListener('visibilitychange', onVisibilityChange);
-        return () => document.removeEventListener('visibilitychange', onVisibilityChange);
-    }, []);
-
-    useEffect(() => {
-        if (selectedCoord !== prevSelectedRef.current) {
-            cursorFadeRef.current = 0;
-            prevSelectedRef.current = selectedCoord;
-        }
-    }, [selectedCoord]);
-
+    // Declarative layer updates pushed to MapboxOverlay when data/ticks change
     useEffect(() => {
         if (!mapRef.current || !overlayRef.current || !ready) return;
 
-        const trailSegments = splitTrailByAntimeridian(trail);
-        const predictionSegments = splitTrailByAntimeridian(prediction);
+        const showISS = !!modules.iss && !!iss;
+        const showCursor = anim.cursorFade > 0.001;
 
-        const tick = (timestamp: number) => {
-            if (!visibleRef.current) {
-                frameRef.current = requestAnimationFrame(tick);
-                return;
+        const cursorRadius = pulseRadius(anim.cursorPhase, CURSOR_PULSE_HZ, CURSOR_PULSE_AMP, CURSOR_PULSE_BASE);
+        const issRadius = pulseRadius(anim.issPhase, ISS_PULSE_HZ, ISS_PULSE_AMP, ISS_PULSE_BASE);
+
+        const orderMap: Record<LayerOrderKey, any[]> = {
+            nasaGIBS: [],
+            nightLights: [],
+            temperature: [],
+            precipitation: [],
+            clouds: [],
+            dayNight: [],
+            wind: [],
+            marine: [],
+            iss: []
+        };
+
+        // Precipitation trips
+        if (modules.tileGroup === 'precipitation' && windPaths.length > 0) {
+            orderMap.precipitation.push(new TripsLayer({
+                id: 'rain-trips',
+                data: windPaths,
+                getPath: d => d.path,
+                getTimestamps: d => d.timestamps.map((t: number) => t + 1.2),
+                getColor: [0, 229, 255],
+                opacity: 0.65,
+                widthMinPixels: Math.max(1.0, ps.width * 0.55),
+                trailLength: ps.trailLength * 0.8,
+                currentTime: anim.tripTime,
+                capRounded: true,
+                jointRounded: true,
+                shadowEnabled: false,
+            }));
+        }
+
+        // Wind trips
+        if (modules.wind && windPaths.length > 0) {
+            orderMap.wind.push(new TripsLayer({
+                id: 'wind-trips',
+                data: windPaths,
+                getPath: d => d.path,
+                getTimestamps: d => d.timestamps,
+                getColor: d => getWindColor(d.speed),
+                opacity: 0.8,
+                widthMinPixels: ps.width,
+                trailLength: ps.trailLength,
+                currentTime: anim.tripTime,
+                capRounded: true,
+                jointRounded: true,
+                shadowEnabled: false,
+            }));
+        }
+
+        // Day/night boundary
+        if (modules.dayNight) {
+            const bands = (twilightBands || [])
+                .filter(b => b && b.rings && b.rings.length > 0)
+                .map((band, idx) => new PolygonLayer({
+                    id: `twilight-band-map-${idx}`,
+                    data: band.rings,
+                    getPolygon: (d: any) => d,
+                    filled: true,
+                    stroked: false,
+                    getFillColor: band.color,
+                    opacity: band.opacity,
+                    pickable: false,
+                }));
+            orderMap.dayNight.push(...bands);
+
+            if (terminator && terminator.rings && terminator.rings.length > 0) {
+                orderMap.dayNight.push(new PolygonLayer({
+                    id: 'terminator-night',
+                    data: terminator.rings,
+                    getPolygon: (d: any) => d,
+                    filled: true,
+                    stroked: false,
+                    getFillColor: [4, 8, 18, 165],
+                    opacity: 0.6,
+                    pickable: false,
+                }));
             }
-            const last = lastTickRef.current || timestamp;
-            const rawDelta = (timestamp - last) / 1000;
-            const delta = clampFrameDelta(rawDelta);
-            lastTickRef.current = timestamp;
+        }
 
-            cursorPhaseRef.current += delta;
-            issPhaseRef.current += delta;
-            tripTimeRef.current = (tripTimeRef.current + delta * 1.2) % 12;
+        // Marine wave point
+        if (modules.marine && marine) {
+            orderMap.marine.push(new ScatterplotLayer({
+                id: 'marine-wave-point',
+                data: [marine],
+                getPosition: (d: MarineData) => [d.longitude, d.latitude],
+                radiusUnits: 'pixels',
+                getRadius: 18 + (marine.waveHeight ?? 0) * 6,
+                getFillColor: (() => {
+                    const sst = marine.seaSurfaceTemperature ?? 15;
+                    if (sst < 5) return [6, 78, 135, 140];
+                    if (sst < 15) return [26, 139, 204, 140];
+                    if (sst < 25) return [45, 212, 191, 140];
+                    return [251, 191, 36, 140];
+                })(),
+                stroked: true,
+                getLineColor: [0, 229, 255, 80],
+                lineWidthMinPixels: 1.5,
+            }));
+        }
 
-            if (selectedCoord) {
-                cursorFadeRef.current = Math.min(1, cursorFadeRef.current + delta * 4);
-            } else {
-                cursorFadeRef.current = Math.max(0, cursorFadeRef.current - delta * 3);
-            }
+        // ISS trail and spaceship
+        if (showISS) {
+            const trailSegments = splitTrailByAntimeridian(trail);
+            const predictionSegments = splitTrailByAntimeridian(prediction);
 
-            const cursorRadius = pulseRadius(cursorPhaseRef.current, CURSOR_PULSE_HZ, CURSOR_PULSE_AMP, CURSOR_PULSE_BASE);
-            const issRadius = pulseRadius(issPhaseRef.current, ISS_PULSE_HZ, ISS_PULSE_AMP, ISS_PULSE_BASE);
-            const showCursor = cursorFadeRef.current > 0.001;
-            const showISS = !!modules.iss && !!iss;
-
-            const layers = [
-                showCursor && new ScatterplotLayer({
-                    id: 'selected-coord-pulse',
-                    data: selectedCoord ? [selectedCoord] : [],
-                    getPosition: d => [d.lon, d.lat],
-                    radiusUnits: 'pixels',
-                    getRadius: cursorRadius,
-                    getFillColor: [0, 229, 255, Math.round(24 * cursorFadeRef.current)],
-                    stroked: true,
-                    getLineColor: [0, 229, 255, Math.round(140 * cursorFadeRef.current)],
-                    lineWidthMinPixels: 1.5,
-                    updateTriggers: {
-                        getRadius: [Math.floor(cursorPhaseRef.current * 10)],
-                    },
-                }),
-                showCursor && new ScatterplotLayer({
-                    id: 'selected-coord-pin',
-                    data: selectedCoord ? [selectedCoord] : [],
-                    getPosition: d => [d.lon, d.lat],
-                    radiusUnits: 'pixels',
-                    getRadius: 6,
-                    getFillColor: [0, 229, 255, Math.round(180 * cursorFadeRef.current)],
-                    stroked: true,
-                    getLineColor: [255, 255, 255, Math.round(220 * cursorFadeRef.current)],
-                    lineWidthMinPixels: 2,
-                }),
-
-                modules.wind && new TripsLayer({
-                    id: 'wind-trips',
-                    data: windPaths,
-                    getPath: d => d.path,
-                    getTimestamps: d => d.timestamps,
-                    getColor: d => getWindColor(d.speed),
-                    opacity: 0.8,
-                    widthMinPixels: 1.8,
-                    trailLength: 2.2,
-                    currentTime: tripTimeRef.current,
-                    rounded: true,
-                    shadowEnabled: false,
-                }),
-
-                modules.tileGroup === 'precipitation' && new TripsLayer({
-                    id: 'rain-trips',
-                    data: windPaths,
-                    getPath: d => d.path,
-                    getTimestamps: d => d.timestamps.map((t: number) => t + 1.2),
-                    getColor: [0, 229, 255],
-                    opacity: 0.65,
-                    widthMinPixels: 1.0,
-                    trailLength: 1.8,
-                    currentTime: tripTimeRef.current,
-                    rounded: true,
-                    shadowEnabled: false,
-                }),
-
-                showISS && new PathLayer({
+            orderMap.iss.push(
+                new PathLayer({
                     id: 'iss-trail',
                     data: trailSegments,
                     getPath: d => d.path as [number, number][],
@@ -248,8 +325,7 @@ export default function MapCanvas({
                     capRounded: true,
                     jointRounded: true,
                 }),
-
-                showISS && new PathLayer({
+                new PathLayer({
                     id: 'iss-prediction',
                     data: predictionSegments,
                     getPath: d => d.path as [number, number][],
@@ -258,19 +334,7 @@ export default function MapCanvas({
                     widthMinPixels: 1.8,
                     dashJustified: true,
                 }),
-
-                modules.dayNight && terminator.ring.length > 0 && new PolygonLayer({
-                    id: 'terminator-night',
-                    data: [{ polygon: terminator.ring }],
-                    getPolygon: (d: any) => d.polygon,
-                    filled: true,
-                    stroked: false,
-                    getFillColor: [4, 8, 18, 165],
-                    opacity: 0.6,
-                    pickable: false,
-                }),
-
-                showISS && new ScatterplotLayer({
+                new ScatterplotLayer({
                     id: 'iss-glow',
                     data: [iss],
                     getPosition: d => [d.longitude, d.latitude],
@@ -280,11 +344,8 @@ export default function MapCanvas({
                     stroked: true,
                     getLineColor: [0, 229, 255, 100],
                     lineWidthMinPixels: 1,
-                    updateTriggers: {
-                        getRadius: [Math.floor(issPhaseRef.current * 10)],
-                    },
                 }),
-                showISS && new ScatterplotLayer({
+                new ScatterplotLayer({
                     id: 'iss-core',
                     data: [iss],
                     getPosition: d => [d.longitude, d.latitude],
@@ -294,24 +355,45 @@ export default function MapCanvas({
                     stroked: true,
                     getLineColor: [0, 229, 255, 255],
                     lineWidthMinPixels: 2.2,
-                }),
-            ].filter(Boolean);
+                })
+            );
+        }
 
-            if (overlayRef.current) {
-                overlayRef.current.setProps({ layers });
+        const orderedLayers: any[] = [];
+        modules.layerOrder.forEach(key => {
+            const layerVal = orderMap[key];
+            if (layerVal && layerVal.length > 0) {
+                orderedLayers.push(...layerVal);
             }
+        });
 
-            frameRef.current = requestAnimationFrame(tick);
-        };
-        frameRef.current = requestAnimationFrame(tick);
+        const cursorLayers = [
+            showCursor && selectedCoord && new ScatterplotLayer({
+                id: 'selected-coord-pulse',
+                data: [selectedCoord],
+                getPosition: d => [d.lon, d.lat],
+                radiusUnits: 'pixels',
+                getRadius: cursorRadius,
+                getFillColor: [0, 229, 255, Math.round(24 * anim.cursorFade)],
+                stroked: true,
+                getLineColor: [0, 229, 255, Math.round(140 * anim.cursorFade)],
+                lineWidthMinPixels: 1.5,
+            }),
+            showCursor && selectedCoord && new ScatterplotLayer({
+                id: 'selected-coord-pin',
+                data: [selectedCoord],
+                getPosition: d => [d.lon, d.lat],
+                radiusUnits: 'pixels',
+                getRadius: 6,
+                getFillColor: [0, 229, 255, Math.round(180 * anim.cursorFade)],
+                stroked: true,
+                getLineColor: [255, 255, 255, Math.round(220 * anim.cursorFade)],
+                lineWidthMinPixels: 2,
+            })
+        ].filter(Boolean);
 
-        return () => {
-            if (frameRef.current) {
-                cancelAnimationFrame(frameRef.current);
-                frameRef.current = 0;
-            }
-        };
-    }, [ready, selectedCoord, windPaths, iss, trail, prediction, modules, terminator]);
+        overlayRef.current.setProps({ layers: [...orderedLayers, ...cursorLayers] });
+    }, [ready, anim, windPaths, iss, marine, trail, prediction, modules, terminator, twilightBands, ps]);
 
     return (
         <div className="absolute inset-0 w-full h-full bg-black z-0">

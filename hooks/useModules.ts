@@ -1,7 +1,27 @@
 'use client';
 
-import type { BaseStyle, ModuleState, TileGroup } from '@/types';
+import type { BaseStyle, LayerOrderKey, ModuleState, ParticleSettings, TileGroup } from '@/types';
 import { useCallback, useState } from 'react';
+
+/* Faz 2 / Madde 2+3: Varsayılan parçacık ayarları */
+const DEFAULT_PARTICLES: ParticleSettings = {
+    density: 1.0,
+    trailLength: 2.2,
+    width: 1.8,
+    speedMultiplier: 1.2,
+};
+
+const PERF_PARTICLES: ParticleSettings = {
+    density: 0.33,
+    trailLength: 1.4,
+    width: 1.2,
+    speedMultiplier: 0.8,
+};
+
+/* Faz 3 / Madde 1: Varsayılan katman render sırası (düşük index = altta render edilir) */
+const DEFAULT_LAYER_ORDER: LayerOrderKey[] = [
+    'nasaGIBS', 'nightLights', 'temperature', 'precipitation', 'clouds', 'dayNight', 'wind', 'marine', 'iss',
+];
 
 const DEFAULT_STATE: ModuleState = {
     globe3D: true,
@@ -21,6 +41,8 @@ const DEFAULT_STATE: ModuleState = {
     clouds: false,
     performanceMode: false,
     tileGroup: 'none',
+    particleSettings: DEFAULT_PARTICLES,
+    layerOrder: DEFAULT_LAYER_ORDER,
 };
 
 const VIEW_MODES = ['globe3D', 'map2D'] as const;
@@ -66,13 +88,41 @@ export function useModules() {
             }
 
             (next as any)[key] = !prev[key];
+
+            /* Faz 2 / Madde 2: Performans Modu aktif olduğunda
+               parçacık ayarlarını otomatik düşür */
+            if (key === 'performanceMode') {
+                next.particleSettings = next.performanceMode
+                    ? PERF_PARTICLES
+                    : DEFAULT_PARTICLES;
+            }
+
             return next;
+        });
+    }, []);
+
+    const updateParticleSettings = useCallback((update: Partial<ParticleSettings>) => {
+        setModules(prev => ({
+            ...prev,
+            particleSettings: { ...prev.particleSettings, ...update },
+        }));
+    }, []);
+
+    /* Faz 3 / Madde 1: Katman sıralama (swap-based reorder) */
+    const reorderLayers = useCallback((from: number, to: number) => {
+        setModules(prev => {
+            const order = [...prev.layerOrder];
+            const [item] = order.splice(from, 1);
+            order.splice(to, 0, item);
+            return { ...prev, layerOrder: order };
         });
     }, []);
 
     return {
         modules,
         toggle,
+        updateParticleSettings,
+        reorderLayers,
         baseStyle: baseStyleOf(modules),
         tileGroup: modules.tileGroup,
     };

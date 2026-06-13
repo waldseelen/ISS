@@ -1,58 +1,48 @@
 import type { GeoCity, ISSData, MarineData, WeatherData, WindPoint } from '@/types';
 import { WMO_CODES } from '@/types';
-
-const FETCH_OPTS: RequestInit = { mode: 'cors', credentials: 'omit' };
+import { fetchWithRetry, safeNum, safeStr } from './fetchWithRetry';
 
 /* ═══════════════════════════════════════════════════════════════
    WEATHER — Open-Meteo Forecast
+   (Faz 1: fetchWithRetry ile retry+backoff, safeNum ile NaN guard)
    ═══════════════════════════════════════════════════════════════ */
 export async function fetchWeather(lat: number, lon: number): Promise<WeatherData | null> {
-    try {
-        const url =
-            `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
-            `&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,wind_direction_10m,precipitation,weather_code`;
-        const res = await fetch(url, FETCH_OPTS);
-        if (!res.ok) return null;
-        const json = await res.json();
-        const c = json.current;
-        return {
-            latitude: json.latitude,
-            longitude: json.longitude,
-            temperature: c.temperature_2m,
-            apparentTemperature: c.apparent_temperature,
-            humidity: c.relative_humidity_2m,
-            windSpeed: c.wind_speed_10m,
-            windDirection: c.wind_direction_10m,
-            precipitation: c.precipitation,
-            weatherCode: c.weather_code,
-        };
-    } catch {
-        return null;
-    }
+    const url =
+        `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+        `&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,wind_direction_10m,precipitation,weather_code`;
+    const json = await fetchWithRetry<Record<string, any>>(url);
+    if (!json?.current) return null;
+    const c = json.current;
+    return {
+        latitude: safeNum(json.latitude, lat),
+        longitude: safeNum(json.longitude, lon),
+        temperature: safeNum(c.temperature_2m),
+        apparentTemperature: safeNum(c.apparent_temperature),
+        humidity: safeNum(c.relative_humidity_2m),
+        windSpeed: safeNum(c.wind_speed_10m),
+        windDirection: safeNum(c.wind_direction_10m),
+        precipitation: safeNum(c.precipitation),
+        weatherCode: safeNum(c.weather_code),
+    };
 }
 
 /* ═══════════════════════════════════════════════════════════════
    ISS — wheretheiss.at
+   (Faz 1: fetchWithRetry + field validation)
    ═══════════════════════════════════════════════════════════════ */
 export async function fetchISS(): Promise<ISSData | null> {
-    try {
-        const res = await fetch(
-            'https://api.wheretheiss.at/v1/satellites/25544',
-            FETCH_OPTS,
-        );
-        if (!res.ok) return null;
-        const d = await res.json();
-        return {
-            latitude: d.latitude,
-            longitude: d.longitude,
-            altitude: d.altitude,
-            velocity: d.velocity,
-            visibility: d.visibility ?? 'unknown',
-            timestamp: d.timestamp,
-        };
-    } catch {
-        return null;
-    }
+    const json = await fetchWithRetry<Record<string, any>>(
+        'https://api.wheretheiss.at/v1/satellites/25544',
+    );
+    if (!json || typeof json.latitude === 'undefined') return null;
+    return {
+        latitude: safeNum(json.latitude),
+        longitude: safeNum(json.longitude),
+        altitude: safeNum(json.altitude),
+        velocity: safeNum(json.velocity),
+        visibility: safeStr(json.visibility, 'unknown'),
+        timestamp: safeNum(json.timestamp),
+    };
 }
 
 
@@ -188,54 +178,45 @@ export function t(key: Exclude<keyof typeof TRANSLATIONS['tr'], 'windDirs'>): st
 
 /* ═══════════════════════════════════════════════════════════════
    GEOCODING — Open-Meteo Geocoding
+   (Faz 1: fetchWithRetry + AbortSignal passthrough)
    ═══════════════════════════════════════════════════════════════ */
 export async function searchCity(query: string, signal?: AbortSignal): Promise<GeoCity[]> {
     if (!query || query.length < 2) return [];
-    try {
-        const lang = getLanguage();
-        const res = await fetch(
-            `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=6&language=${lang}`,
-            { ...FETCH_OPTS, signal },
-        );
-        if (!res.ok) return [];
-        const json = await res.json();
-        return (json.results ?? []).map((r: Record<string, unknown>) => ({
-            id: r.id,
-            name: r.name,
-            latitude: r.latitude,
-            longitude: r.longitude,
-            country: r.country ?? '',
-            admin1: r.admin1 ?? '',
-            population: r.population ?? 0,
-        }));
-    } catch {
-        return [];
-    }
+    const lang = getLanguage();
+    const json = await fetchWithRetry<Record<string, any>>(
+        `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=6&language=${lang}`,
+        { signal, maxRetries: 1 },
+    );
+    if (!json?.results) return [];
+    return (json.results as Record<string, unknown>[]).map((r) => ({
+        id: safeNum(r.id),
+        name: safeStr(r.name, 'Unknown'),
+        latitude: safeNum(r.latitude),
+        longitude: safeNum(r.longitude),
+        country: safeStr(r.country),
+        admin1: safeStr(r.admin1),
+        population: safeNum(r.population),
+    }));
 }
 
 /* ═══════════════════════════════════════════════════════════════
    MARINE — Open-Meteo Marine
    ═══════════════════════════════════════════════════════════════ */
 export async function fetchMarine(lat: number, lon: number): Promise<MarineData | null> {
-    try {
-        const url =
-            `https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lon}` +
-            `&current=wave_height,wave_direction,wave_period,sea_surface_temperature`;
-        const res = await fetch(url, FETCH_OPTS);
-        if (!res.ok) return null;
-        const json = await res.json();
-        const c = json.current;
-        return {
-            latitude: json.latitude,
-            longitude: json.longitude,
-            waveHeight: c.wave_height ?? 0,
-            waveDirection: c.wave_direction ?? 0,
-            wavePeriod: c.wave_period ?? 0,
-            seaSurfaceTemperature: c.sea_surface_temperature ?? 0,
-        };
-    } catch {
-        return null;
-    }
+    const url =
+        `https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lon}` +
+        `&current=wave_height,wave_direction,wave_period,sea_surface_temperature`;
+    const json = await fetchWithRetry<Record<string, any>>(url);
+    if (!json?.current) return null;
+    const c = json.current;
+    return {
+        latitude: safeNum(json.latitude, lat),
+        longitude: safeNum(json.longitude, lon),
+        waveHeight: safeNum(c.wave_height),
+        waveDirection: safeNum(c.wave_direction),
+        wavePeriod: safeNum(c.wave_period),
+        seaSurfaceTemperature: safeNum(c.sea_surface_temperature),
+    };
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -263,54 +244,100 @@ export async function fetchWindGrid(
 
     if (lats.length === 0) return [];
 
-    try {
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lats.join(',')}&longitude=${lons.join(',')}&current=wind_speed_10m,wind_direction_10m`;
-        const res = await fetch(url, FETCH_OPTS);
-        if (!res.ok) return [];
-        const json = await res.json();
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lats.join(',')}&longitude=${lons.join(',')}&current=wind_speed_10m,wind_direction_10m`;
+    const json = await fetchWithRetry<any>(url);
+    if (!json) return [];
 
-        if (Array.isArray(json)) {
-            return json.map(j => ({
-                lat: j.latitude,
-                lon: j.longitude,
-                speed: j.current?.wind_speed_10m ?? 0,
-                direction: j.current?.wind_direction_10m ?? 0,
-            }));
-        } else if (json.current) {
-            return [{
-                lat: json.latitude,
-                lon: json.longitude,
-                speed: json.current.wind_speed_10m ?? 0,
-                direction: json.current.wind_direction_10m ?? 0,
-            }];
-        }
-        return [];
-    } catch {
-        return [];
+    if (Array.isArray(json)) {
+        return json.map(j => ({
+            lat: safeNum(j.latitude),
+            lon: safeNum(j.longitude),
+            speed: safeNum(j.current?.wind_speed_10m),
+            direction: safeNum(j.current?.wind_direction_10m),
+        }));
+    } else if (json.current) {
+        return [{
+            lat: safeNum(json.latitude),
+            lon: safeNum(json.longitude),
+            speed: safeNum(json.current.wind_speed_10m),
+            direction: safeNum(json.current.wind_direction_10m),
+        }];
     }
+    return [];
 }
 
 /* ═══════════════════════════════════════════════════════════════
    ELEVATION PROFILE — Open-Meteo Elevation
    ═══════════════════════════════════════════════════════════════ */
 export async function fetchElevationProfile(lat: number, lon: number): Promise<number[]> {
+    const points: { lat: number; lon: number }[] = [];
+    const step = 0.012; // Step size for ~15km span (15 points * ~1.2km)
+    for (let i = -7; i <= 7; i++) {
+        points.push({ lat, lon: lon + i * step });
+    }
+    const latsStr = points.map(p => p.lat).join(',');
+    const lonsStr = points.map(p => p.lon).join(',');
+    const url = `https://api.open-meteo.com/v1/elevation?latitude=${latsStr}&longitude=${lonsStr}`;
+    const json = await fetchWithRetry<Record<string, any>>(url);
+    if (!json?.elevation || !Array.isArray(json.elevation)) {
+        return [120, 150, 180, 220, 310, 410, 450, 420, 330, 220, 180, 140, 110, 90, 80];
+    }
+    return json.elevation.map((v: unknown) => safeNum(v));
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CLIMATOLOGY ANOMALY — Open-Meteo Archive
+   ═══════════════════════════════════════════════════════════════ */
+export async function fetchClimatology(lat: number, lon: number): Promise<{ monthlyAvg: number; history: number[] }> {
     try {
-        const points = [
-            { lat, lon: lon - 0.04 },
-            { lat, lon: lon - 0.02 },
-            { lat, lon },
-            { lat, lon: lon + 0.02 },
-            { lat, lon: lon + 0.04 }
-        ];
-        const latsStr = points.map(p => p.lat).join(',');
-        const lonsStr = points.map(p => p.lon).join(',');
-        const url = `https://api.open-meteo.com/v1/elevation?latitude=${latsStr}&longitude=${lonsStr}`;
-        const res = await fetch(url, FETCH_OPTS);
-        if (!res.ok) return [120, 310, 450, 220, 80];
-        const json = await res.json();
-        return json.elevation ?? [120, 310, 450, 220, 80];
+        const now = new Date();
+        const year = now.getFullYear();
+        const monthNum = now.getMonth() + 1;
+        const monthStr = String(monthNum).padStart(2, '0');
+        
+        // Fetch last 3 years for the same month (approx 84 daily values)
+        const startYear = year - 3;
+        const endYear = year - 1;
+        const startDate = `${startYear}-${monthStr}-01`;
+        const endDate = `${endYear}-${monthStr}-28`;
+        
+        const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${startDate}&end_date=${endDate}&daily=temperature_2m_mean`;
+        const json = await fetchWithRetry<any>(url);
+        
+        if (!json?.daily?.temperature_2m_mean) {
+            throw new Error("Invalid climatology data");
+        }
+        
+        const temps: number[] = json.daily.temperature_2m_mean.filter((t: any) => typeof t === 'number');
+        if (temps.length === 0) {
+            throw new Error("Empty climatology temps");
+        }
+        
+        const sum = temps.reduce((a: number, b: number) => a + b, 0);
+        const monthlyAvg = sum / temps.length;
+        
+        // Sample 12 points for display
+        const sample: number[] = [];
+        const step = Math.max(1, Math.floor(temps.length / 12));
+        for (let i = 0; i < temps.length && sample.length < 12; i += step) {
+            sample.push(temps[i]);
+        }
+        
+        return {
+            monthlyAvg: Math.round(monthlyAvg * 10) / 10,
+            history: sample,
+        };
     } catch {
-        return [120, 310, 450, 220, 80];
+        // Latitude-based seasonal fallback
+        const baseTemp = 24 - Math.abs(lat) * 0.38;
+        const currentMonth = new Date().getMonth();
+        const seasonalFactor = Math.sin(((currentMonth - 3) * Math.PI) / 6); // July peak in N hemisphere
+        const avg = baseTemp + seasonalFactor * 10;
+        const history = Array.from({ length: 12 }, (_, i) => Math.round((avg + Math.sin(i) * 1.5) * 10) / 10);
+        return {
+            monthlyAvg: Math.round(avg * 10) / 10,
+            history
+        };
     }
 }
 

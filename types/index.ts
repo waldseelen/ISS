@@ -1,5 +1,16 @@
 /* ─── Earth Tracker — Global Type Definitions ─── */
 
+export type BaseStyle = 'satellite' | 'street' | 'topo';
+export type TileGroup = 'none' | 'precipitation' | 'temperature' | 'clouds' | 'wind';
+
+/* Faz 2 / Madde 2+3: Parçacık vektör alanı ayarları */
+export interface ParticleSettings {
+    density: number;       // 0.1 – 1.0 (1.0 = 1800 particles)
+    trailLength: number;   // 0.5 – 5.0
+    width: number;         // 0.5 – 4.0 (px)
+    speedMultiplier: number; // 0.3 – 3.0
+}
+
 export interface ModuleState {
     globe3D: boolean;
     map2D: boolean;
@@ -18,10 +29,13 @@ export interface ModuleState {
     clouds: boolean;
     performanceMode: boolean;
     tileGroup: TileGroup;
+    particleSettings: ParticleSettings;
+    /* Faz 3 / Madde 1: Katman render sırası (düşük index = altta) */
+    layerOrder: LayerOrderKey[];
 }
 
-export type BaseStyle = 'satellite' | 'street' | 'topo';
-export type TileGroup = 'none' | 'precipitation' | 'temperature' | 'clouds' | 'wind';
+/* Faz 3 / Madde 1: Sıralanabilir overlay katman anahtarları */
+export type LayerOrderKey = 'nasaGIBS' | 'nightLights' | 'temperature' | 'precipitation' | 'clouds' | 'dayNight' | 'wind' | 'marine' | 'iss';
 
 export interface ModuleGroups {
     baseStyle: BaseStyle;
@@ -29,7 +43,7 @@ export interface ModuleGroups {
 }
 
 export interface TerminatorPolygon {
-    ring: [number, number][];
+    rings: [number, number, number?][][];
 }
 
 export type ModuleKey = keyof ModuleState;
@@ -165,3 +179,16 @@ export const WMO_CODES: Record<number, { label: string; icon: string }> = {
     96: { label: 'Dolu ile Fırtına', icon: '⛈️' },
     99: { label: 'Şiddetli Dolu Fırtınası', icon: '⛈️' },
 };
+
+/* ─── ISS Pass Prediction ─── */
+export interface ISSPass {
+    startTime: Date;
+    peakTime: Date;
+    endTime: Date;
+    maxElevation: number;
+    startAzimuth: number;
+    peakAzimuth: number;
+    endAzimuth: number;
+    durationSeconds: number;
+}
+

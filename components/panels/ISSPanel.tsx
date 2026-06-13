@@ -4,7 +4,7 @@ import { t } from '@/lib/api';
 import type { ISSData } from '@/types';
 import { useEffect, useState } from 'react';
 import { playBeep } from '@/lib/audio';
-import { predictUpcomingPasses, type ISSPass } from '@/lib/geo';
+import { predictUpcomingPasses, type ISSUpcomingPass } from '@/lib/geo';
 import { useModules } from '@/hooks/useModules';
 
 interface Props {
@@ -16,7 +16,7 @@ export default function ISSPanel({ iss, prediction = [] }: Props) {
     const [showCamera, setShowCamera] = useState(false);
     const [showPasses, setShowPasses] = useState(false);
     const { modules } = useModules();
-    const [passes, setPasses] = useState<ISSPass[]>([]);
+    const [passes, setPasses] = useState<ISSUpcomingPass[]>([]);
     const [passError, setPassError] = useState(false);
 
     useEffect(() => {

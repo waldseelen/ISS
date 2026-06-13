@@ -2,24 +2,28 @@
 
 import { generateWindPaths, getWindColor, type WindTrajectory } from '@/lib/map';
 import { get3DSourceUrl, AUTO_SWITCH_GLOBE_MIN_ZOOM } from '@/lib/canvasStyle';
-import { clampFrameDelta, CURSOR_PULSE_AMP, CURSOR_PULSE_BASE, CURSOR_PULSE_HZ, ISS_PULSE_AMP, ISS_PULSE_BASE, ISS_PULSE_HZ, pulseRadius } from '@/lib/pulse';
+import { CURSOR_PULSE_AMP, CURSOR_PULSE_BASE, CURSOR_PULSE_HZ, ISS_PULSE_AMP, ISS_PULSE_BASE, ISS_PULSE_HZ, pulseRadius } from '@/lib/pulse';
 import { getRainViewerTimestamp, TILES, yesterdayISO } from '@/lib/tiles';
 import { splitTrailByAntimeridian } from '@/hooks/useISS';
-import type { BaseStyle, ISSData, ModuleState, TerminatorPolygon, WindPoint } from '@/types';
-import { Deck, _GlobeView as GlobeView, FlyToInterpolator } from '@deck.gl/core';
+import type { TwilightBand } from '@/hooks/useSun';
+import type { BaseStyle, ISSData, LayerOrderKey, MarineData, ModuleState, TerminatorPolygon, WindPoint } from '@/types';
+import { _GlobeView as GlobeView, FlyToInterpolator } from '@deck.gl/core';
+import DeckGL from '@deck.gl/react';
 import { TripsLayer } from '@deck.gl/geo-layers';
 import { PathLayer, ScatterplotLayer, BitmapLayer, PolygonLayer } from '@deck.gl/layers';
 import { TileLayer } from '@deck.gl/geo-layers';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 
 interface Props {
     iss: ISSData | null;
     trail: { lat: number; lon: number }[];
     prediction: { lat: number; lon: number }[];
     wind: WindPoint[];
+    marine: MarineData | null;
     modules: ModuleState;
     baseStyle: BaseStyle;
     terminator: TerminatorPolygon;
+    twilightBands?: TwilightBand[];
     flyTarget: { lat: number; lon: number } | null;
     selectedCoord?: { lat: number; lon: number } | null;
     onCameraChange?: (distance: number) => void;
@@ -52,72 +56,52 @@ export default function GlobeCanvas({
     trail,
     prediction,
     wind,
+    marine,
     modules,
     baseStyle,
     terminator,
+    twilightBands = [],
     flyTarget,
     selectedCoord,
     onCameraChange,
     onGlobeClick
 }: Props) {
-    const containerRef = useRef<HTMLDivElement>(null);
-    const deckRef = useRef<Deck<any> | null>(null);
-    const [ready, setReady] = useState(false);
     const [windPaths, setWindPaths] = useState<WindTrajectory[]>([]);
     const [rainTimestamp, setRainTimestamp] = useState<number | null>(null);
-    const viewStateRef = useRef({ longitude: 0, latitude: 20, zoom: 1.8 });
-    const visibleRef = useRef(true);
-    const frameRef = useRef(0);
-    const cursorPhaseRef = useRef(0);
-    const issPhaseRef = useRef(Math.PI / 3);
-    const tripTimeRef = useRef(0);
-    const lastTickRef = useRef(0);
-    const cursorFadeRef = useRef(0);
-    const prevSelectedRef = useRef<{ lat: number; lon: number } | null>(null);
+
+    const [viewState, setViewState] = useState<any>({
+        longitude: 0,
+        latitude: 20,
+        zoom: 1.8,
+        minZoom: 1.5,
+        maxZoom: 18,
+    });
+
+    // Animate state grouped to minimize React render jitter
+    const [anim, setAnim] = useState({
+        tripTime: 0,
+        cursorPhase: 0,
+        issPhase: Math.PI / 3,
+        cursorFade: 0,
+    });
 
     const yesterdayStr = useMemo(() => yesterdayISO(), []);
+    const ps = modules.particleSettings;
     const perfMode = modules.performanceMode;
 
-    const baseLayers = useMemo(() => [
-        makeTileLayer(`base-${baseStyle}-tiles`, get3DSourceUrl(baseStyle), 1, 0, 18),
-    ], [baseStyle]);
+    const particleCount = useMemo(() => {
+        const base = perfMode ? 600 : 1800;
+        return Math.round(base * ps.density);
+    }, [perfMode, ps.density]);
 
-    const overlayLayers = useMemo(() => {
-        const layers: any[] = [];
-
-        if (modules.nasaGIBS) {
-            layers.push(makeTileLayer('nasagibs-globe-tiles', TILES.nasaGIBS(yesterdayStr), 0.9, 0, 9));
+    useEffect(() => {
+        const needWind = modules.wind || modules.tileGroup === 'precipitation';
+        if (wind.length > 0 && needWind) {
+            setWindPaths(generateWindPaths(wind, particleCount, 12));
+        } else {
+            setWindPaths([]);
         }
-        if (modules.nightLights) {
-            layers.push(makeTileLayer('night-lights-tiles', TILES.nightLights, 0.65, 0, 8));
-        }
-        if (modules.tileGroup === 'temperature') {
-            layers.push(makeTileLayer('temperature-globe-tiles',
-                `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_Land_Surface_Temp_Day/default/${yesterdayStr}/GoogleMapsCompatible_Level7/{z}/{y}/{x}.png`,
-                0.6, 0, 7));
-        }
-        if (modules.tileGroup === 'precipitation' && rainTimestamp) {
-            layers.push(makeTileLayer('precipitation-globe-tiles', TILES.rainViewer(rainTimestamp), 0.75, 0, 12));
-        }
-        if (modules.tileGroup === 'clouds') {
-            layers.push(makeTileLayer('clouds-globe-tiles', TILES.nasaClouds(yesterdayStr), 0.45, 0, 9));
-        }
-
-        if (modules.dayNight && terminator.ring.length > 0) {
-            layers.push(new PolygonLayer({
-                id: 'terminator-night-globe',
-                data: [{ polygon: terminator.ring }],
-                getPolygon: (d: any) => d.polygon,
-                filled: true,
-                stroked: false,
-                getFillColor: [4, 8, 18, 165],
-                opacity: 0.7,
-                pickable: false,
-            }));
-        }
-
-        return layers;
-    }, [modules, modules.nasaGIBS, modules.nightLights, modules.tileGroup, modules.dayNight, rainTimestamp, yesterdayStr, terminator]);
+    }, [wind, modules.wind, modules.tileGroup, particleCount]);
 
     useEffect(() => {
         if (modules.tileGroup === 'precipitation') {
@@ -125,204 +109,214 @@ export default function GlobeCanvas({
         }
     }, [modules.tileGroup]);
 
+    // Fly to target interpolation trigger
     useEffect(() => {
-        const needWind = modules.wind || modules.tileGroup === 'precipitation';
-        if (wind.length > 0 && needWind) {
-            setWindPaths(generateWindPaths(wind, perfMode ? 600 : 1800, 12));
-        } else {
-            setWindPaths([]);
-        }
-    }, [wind, modules.wind, modules.tileGroup, perfMode]);
-
-    useEffect(() => {
-        if (!containerRef.current || deckRef.current) return;
-
-        const deck = new Deck({
-            parent: containerRef.current,
-            views: new GlobeView({ id: 'globe', controller: true }),
-            initialViewState: viewStateRef.current,
-            onViewStateChange: ({ viewState }) => {
-                viewStateRef.current = viewState as any;
-                onCameraChange?.(viewState.zoom);
-            },
-            onClick: (info) => {
-                if (info.coordinate && onGlobeClick) {
-                    const [lon, lat] = info.coordinate;
-                    onGlobeClick(lat, lon);
-                }
-            },
-        });
-
-        const canvas = containerRef.current?.querySelector('canvas');
-        const handleContextLost = (e: Event) => {
-            e.preventDefault();
-            console.warn('WebGL context lost on 3D Globe canvas. Re-initializing graphics...');
-            setReady(false);
-            setTimeout(() => setReady(true), 150);
-        };
-        canvas?.addEventListener('webglcontextlost', handleContextLost);
-
-        deckRef.current = deck;
-        setReady(true);
-
-        return () => {
-            canvas?.removeEventListener('webglcontextlost', handleContextLost);
-            if (deckRef.current) {
-                deckRef.current.finalize();
-                deckRef.current = null;
-            }
-            setReady(false);
-        };
-    }, []);
-
-    useEffect(() => {
-        if (!deckRef.current || !flyTarget || !ready) return;
-
-        viewStateRef.current = {
+        if (!flyTarget) return;
+        setViewState((prev: any) => ({
+            ...prev,
             longitude: flyTarget.lon,
             latitude: flyTarget.lat,
             zoom: 4.8,
-        };
+            transitionDuration: 1800,
+            transitionInterpolator: new FlyToInterpolator(),
+        }));
+    }, [flyTarget]);
 
-        deckRef.current.setProps({
-            initialViewState: {
-                ...viewStateRef.current,
-                transitionDuration: 1800,
-                transitionInterpolator: new FlyToInterpolator(),
-            }
-        });
-    }, [flyTarget, ready]);
-
+    // Lightweight animation loop for Trips and Pulse properties
     useEffect(() => {
-        const onVisibilityChange = () => {
-            visibleRef.current = document.visibilityState === 'visible';
-            if (!visibleRef.current && frameRef.current) {
-                cancelAnimationFrame(frameRef.current);
-                frameRef.current = 0;
-            }
-        };
-        document.addEventListener('visibilitychange', onVisibilityChange);
-        return () => document.removeEventListener('visibilitychange', onVisibilityChange);
-    }, []);
+        let frameId: number;
+        let lastTime = performance.now();
 
-    useEffect(() => {
-        const cur = selectedCoord ?? null;
-        if (cur !== prevSelectedRef.current) {
-            cursorFadeRef.current = 0;
-            prevSelectedRef.current = cur;
-        }
-    }, [selectedCoord]);
+        const loop = (now: number) => {
+            const delta = (now - lastTime) / 1000;
+            lastTime = now;
 
-    useEffect(() => {
-        if (!deckRef.current || !ready) return;
+            // Clamping delta to avoid physics explosion
+            const clampedDelta = Math.min(delta, 0.1);
 
-        const trailSegments = splitTrailByAntimeridian(trail);
-        const predictionSegments = splitTrailByAntimeridian(prediction);
+            setAnim(prev => {
+                const nextTripTime = (prev.tripTime + clampedDelta * ps.speedMultiplier) % 12;
+                const nextCursorPhase = prev.cursorPhase + clampedDelta;
+                const nextIssPhase = prev.issPhase + clampedDelta;
+                let nextCursorFade = prev.cursorFade;
 
-        const tick = (timestamp: number) => {
-            if (!visibleRef.current) {
-                frameRef.current = requestAnimationFrame(tick);
-                return;
-            }
+                if (selectedCoord) {
+                    nextCursorFade = Math.min(1, prev.cursorFade + clampedDelta * 4);
+                } else {
+                    nextCursorFade = Math.max(0, prev.cursorFade - clampedDelta * 3);
+                }
 
-            const last = lastTickRef.current || timestamp;
-            const rawDelta = (timestamp - last) / 1000;
-            const delta = clampFrameDelta(rawDelta);
-            lastTickRef.current = timestamp;
+                return {
+                    tripTime: nextTripTime,
+                    cursorPhase: nextCursorPhase,
+                    issPhase: nextIssPhase,
+                    cursorFade: nextCursorFade,
+                };
+            });
 
-            cursorPhaseRef.current += delta;
-            issPhaseRef.current += delta;
-            tripTimeRef.current = (tripTimeRef.current + delta * 1.2) % 12;
-
-            if (selectedCoord) {
-                cursorFadeRef.current = Math.min(1, cursorFadeRef.current + delta * 4);
+            // If performance mode is active, throttle updates to ~30 FPS
+            if (perfMode) {
+                setTimeout(() => {
+                    frameId = requestAnimationFrame(loop);
+                }, 33);
             } else {
-                cursorFadeRef.current = Math.max(0, cursorFadeRef.current - delta * 3);
+                frameId = requestAnimationFrame(loop);
             }
+        };
 
-            const cursorRadius = pulseRadius(cursorPhaseRef.current, CURSOR_PULSE_HZ, CURSOR_PULSE_AMP, CURSOR_PULSE_BASE);
-            const issRadius = pulseRadius(issPhaseRef.current, ISS_PULSE_HZ, ISS_PULSE_AMP, ISS_PULSE_BASE);
-            const cursorAlpha = Math.round(cursorFadeRef.current * 255);
+        frameId = requestAnimationFrame(loop);
+        return () => cancelAnimationFrame(frameId);
+    }, [ps.speedMultiplier, selectedCoord, perfMode]);
 
-            const showCursor = cursorFadeRef.current > 0.001;
-            const showISS = !!modules.iss && !!iss;
+    const onViewStateChange = useCallback(({ viewState: nextViewState }: any) => {
+        setViewState(nextViewState);
+        onCameraChange?.(nextViewState.zoom);
+    }, [onCameraChange]);
 
-            const dynamicLayers = [
-                showCursor && new ScatterplotLayer({
-                    id: 'selected-coord-pulse-3d',
-                    data: selectedCoord ? [selectedCoord] : [],
-                    getPosition: d => [d.lon, d.lat],
-                    radiusUnits: 'pixels',
-                    getRadius: cursorRadius,
-                    getFillColor: [0, 229, 255, Math.round(24 * cursorFadeRef.current)],
-                    stroked: true,
-                    getLineColor: [0, 229, 255, Math.round(140 * cursorFadeRef.current)],
-                    lineWidthMinPixels: 1.5,
-                    updateTriggers: {
-                        getRadius: [Math.floor(cursorPhaseRef.current * 10)],
-                    },
-                }),
-                showCursor && new ScatterplotLayer({
-                    id: 'selected-coord-pin-3d',
-                    data: selectedCoord ? [selectedCoord] : [],
-                    getPosition: d => [d.lon, d.lat],
-                    radiusUnits: 'pixels',
-                    getRadius: 7,
-                    getFillColor: [0, 229, 255, Math.round(180 * cursorFadeRef.current)],
-                    stroked: true,
-                    getLineColor: [255, 255, 255, Math.round(220 * cursorFadeRef.current)],
-                    lineWidthMinPixels: 2,
-                }),
+    // Memoized static overlays to prevent GPU buffer rebuilds
+    const staticLayers = useMemo(() => {
+        const list = [
+            makeTileLayer(`base-${baseStyle}-tiles`, get3DSourceUrl(baseStyle), 1, 0, 18),
+            modules.nasaGIBS && makeTileLayer('nasagibs-globe-tiles', TILES.nasaGIBS(yesterdayStr), 0.9, 0, 9),
+            modules.nightLights && makeTileLayer('night-lights-tiles', TILES.nightLights, 0.65, 0, 8),
+            modules.tileGroup === 'temperature' && makeTileLayer('temperature-globe-tiles',
+                `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_Land_Surface_Temp_Day/default/${yesterdayStr}/GoogleMapsCompatible_Level7/{z}/{y}/{x}.png`,
+                0.6, 0, 7),
+            modules.tileGroup === 'precipitation' && rainTimestamp && makeTileLayer('precipitation-globe-tiles', TILES.rainViewer(rainTimestamp), 0.75, 0, 12),
+            modules.tileGroup === 'clouds' && makeTileLayer('clouds-globe-tiles', TILES.nasaClouds(yesterdayStr), 0.45, 0, 9),
+        ].filter(Boolean) as any[];
 
-                modules.wind && new TripsLayer({
-                    id: 'wind-trips-3d',
-                    data: windPaths,
-                    getPath: d => d.path,
-                    getTimestamps: d => d.timestamps,
-                    getColor: d => getWindColor(d.speed),
-                    opacity: 0.85,
-                    widthMinPixels: 1.8,
-                    trailLength: 2.2,
-                    currentTime: tripTimeRef.current,
-                    rounded: true,
-                    shadowEnabled: false,
-                }),
+        if (modules.dayNight) {
+            const bands = (twilightBands || []).map((band, idx) => {
+                if (!band || !band.rings || band.rings.length === 0) return null;
+                return new PolygonLayer({
+                    id: `twilight-band-globe-${idx}`,
+                    data: band.rings,
+                    getPolygon: (d: any) => d,
+                    filled: true,
+                    stroked: false,
+                    getFillColor: band.color,
+                    opacity: band.opacity,
+                    pickable: false,
+                    material: false,
+                    parameters: { depthWriteEnabled: false, polygonOffset: [-1, -1 - idx] } as any,
+                });
+            }).filter(Boolean);
+            list.push(...bands);
 
-                modules.tileGroup === 'precipitation' && new TripsLayer({
-                    id: 'rain-trips-3d',
-                    data: windPaths,
-                    getPath: d => d.path,
-                    getTimestamps: d => d.timestamps.map((t: number) => t + 1.2),
-                    getColor: [0, 229, 255],
+            if (terminator && terminator.rings && terminator.rings.length > 0) {
+                list.push(new PolygonLayer({
+                    id: 'terminator-night-globe',
+                    data: terminator.rings,
+                    getPolygon: (d: any) => d,
+                    filled: true,
+                    stroked: false,
+                    getFillColor: [4, 8, 18, 165],
                     opacity: 0.7,
-                    widthMinPixels: 1.0,
-                    trailLength: 1.8,
-                    currentTime: tripTimeRef.current,
-                    rounded: true,
-                    shadowEnabled: false,
-                }),
+                    pickable: false,
+                    material: false,
+                    parameters: { depthWriteEnabled: false, polygonOffset: [-1, -5] } as any,
+                }));
+            }
+        }
 
-                showISS && new PathLayer({
+        return list;
+    }, [baseStyle, modules.nasaGIBS, modules.nightLights, modules.tileGroup, modules.dayNight, rainTimestamp, yesterdayStr, terminator, twilightBands]);
+
+    // Animated layers reconstructed per time-frame
+    const animatedLayers = useMemo(() => {
+        const list: any[] = [];
+        const showISS = !!modules.iss && !!iss;
+        const showCursor = anim.cursorFade > 0.001;
+
+        const cursorRadius = pulseRadius(anim.cursorPhase, CURSOR_PULSE_HZ, CURSOR_PULSE_AMP, CURSOR_PULSE_BASE);
+        const issRadius = pulseRadius(anim.issPhase, ISS_PULSE_HZ, ISS_PULSE_AMP, ISS_PULSE_BASE);
+
+        // Trips rain layer
+        if (modules.tileGroup === 'precipitation' && windPaths.length > 0) {
+            list.push(new TripsLayer({
+                id: 'rain-trips-3d',
+                data: windPaths,
+                getPath: (d: any) => d.path,
+                getTimestamps: (d: any) => d.timestamps.map((t: number) => t + 1.2),
+                getColor: [0, 229, 255],
+                opacity: 0.7,
+                widthMinPixels: Math.max(1.0, ps.width * 0.55),
+                trailLength: ps.trailLength * 0.8,
+                currentTime: anim.tripTime,
+                capRounded: true,
+                jointRounded: true,
+                shadowEnabled: false,
+            }));
+        }
+
+        // Trips wind layer
+        if (modules.wind && windPaths.length > 0) {
+            list.push(new TripsLayer({
+                id: 'wind-trips-3d',
+                data: windPaths,
+                getPath: (d: any) => d.path,
+                getTimestamps: (d: any) => d.timestamps,
+                getColor: (d: any) => getWindColor(d.speed),
+                opacity: 0.85,
+                widthMinPixels: ps.width,
+                trailLength: ps.trailLength,
+                currentTime: anim.tripTime,
+                capRounded: true,
+                jointRounded: true,
+                shadowEnabled: false,
+            }));
+        }
+
+        // Marine wave point layer
+        if (modules.marine && marine) {
+            list.push(new ScatterplotLayer({
+                id: 'marine-wave-point-3d',
+                data: [marine],
+                getPosition: (d: MarineData) => [d.longitude, d.latitude],
+                radiusUnits: 'pixels',
+                getRadius: 18 + (marine.waveHeight ?? 0) * 6,
+                getFillColor: (() => {
+                    const sst = marine.seaSurfaceTemperature ?? 15;
+                    if (sst < 5) return [6, 78, 135, 140];
+                    if (sst < 15) return [26, 139, 204, 140];
+                    if (sst < 25) return [45, 212, 191, 140];
+                    return [251, 191, 36, 140];
+                })(),
+                stroked: true,
+                getLineColor: [0, 229, 255, 80],
+                lineWidthMinPixels: 1.5,
+                parameters: { depthWriteEnabled: false } as any,
+            }));
+        }
+
+        // ISS trail layers
+        if (showISS) {
+            const trailSegments = splitTrailByAntimeridian(trail);
+            const predictionSegments = splitTrailByAntimeridian(prediction);
+
+            list.push(
+                new PathLayer({
                     id: 'iss-trail-3d',
                     data: trailSegments,
-                    getPath: d => d.path as [number, number][],
+                    getPath: (d: any) => d.path as [number, number][],
                     getColor: [0, 229, 255, 160],
                     getWidth: 4,
                     widthMinPixels: 2.5,
                     capRounded: true,
                     jointRounded: true,
+                    parameters: { depthWriteEnabled: false } as any,
                 }),
-
-                showISS && new PathLayer({
+                new PathLayer({
                     id: 'iss-prediction-3d',
                     data: predictionSegments,
-                    getPath: d => d.path as [number, number][],
+                    getPath: (d: any) => d.path as [number, number][],
                     getColor: [255, 255, 255, 75],
                     getWidth: 2.5,
                     widthMinPixels: 1.8,
+                    parameters: { depthWriteEnabled: false } as any,
                 }),
-
-                showISS && new ScatterplotLayer({
+                new ScatterplotLayer({
                     id: 'iss-glow-3d',
                     data: [iss],
                     getPosition: d => [d.longitude, d.latitude],
@@ -332,11 +326,9 @@ export default function GlobeCanvas({
                     stroked: true,
                     getLineColor: [0, 229, 255, 100],
                     lineWidthMinPixels: 1,
-                    updateTriggers: {
-                        getRadius: [Math.floor(issPhaseRef.current * 10)],
-                    },
+                    parameters: { depthWriteEnabled: false } as any,
                 }),
-                showISS && new ScatterplotLayer({
+                new ScatterplotLayer({
                     id: 'iss-core-3d',
                     data: [iss],
                     getPosition: d => [d.longitude, d.latitude],
@@ -346,36 +338,144 @@ export default function GlobeCanvas({
                     stroked: true,
                     getLineColor: [0, 229, 255, 255],
                     lineWidthMinPixels: 2.2,
+                    parameters: { depthWriteEnabled: false } as any,
+                })
+            );
+        }
+
+        // Selected coordinates cursor layers
+        if (showCursor && selectedCoord) {
+            list.push(
+                new ScatterplotLayer({
+                    id: 'selected-coord-pulse-3d',
+                    data: [selectedCoord],
+                    getPosition: d => [d.lon, d.lat],
+                    radiusUnits: 'pixels',
+                    getRadius: cursorRadius,
+                    getFillColor: [0, 229, 255, Math.round(24 * anim.cursorFade)],
+                    stroked: true,
+                    getLineColor: [0, 229, 255, Math.round(140 * anim.cursorFade)],
+                    lineWidthMinPixels: 1.5,
                 }),
-            ].filter(Boolean);
+                new ScatterplotLayer({
+                    id: 'selected-coord-pin-3d',
+                    data: [selectedCoord],
+                    getPosition: d => [d.lon, d.lat],
+                    radiusUnits: 'pixels',
+                    getRadius: 7,
+                    getFillColor: [0, 229, 255, Math.round(180 * anim.cursorFade)],
+                    stroked: true,
+                    getLineColor: [255, 255, 255, Math.round(220 * anim.cursorFade)],
+                    lineWidthMinPixels: 2,
+                })
+            );
+        }
 
-            if (deckRef.current) {
-                deckRef.current.setProps({ layers: [...baseLayers, ...overlayLayers, ...dynamicLayers] });
-            }
+        return list;
+    }, [
+        modules.iss, modules.wind, modules.tileGroup, modules.marine,
+        iss, marine, windPaths, trail, prediction, selectedCoord,
+        anim.tripTime, anim.cursorPhase, anim.issPhase, anim.cursorFade,
+        ps.width, ps.trailLength, ps.speedMultiplier
+    ]);
 
-            frameRef.current = requestAnimationFrame(tick);
+    // Map layer stacking in specified z-order hierarchy mapping
+    const layers = useMemo(() => {
+        const orderMap: Record<LayerOrderKey, any[]> = {
+            nasaGIBS: [],
+            nightLights: [],
+            temperature: [],
+            precipitation: [],
+            clouds: [],
+            dayNight: [],
+            wind: [],
+            marine: [],
+            iss: []
         };
-        frameRef.current = requestAnimationFrame(tick);
 
-        return () => {
-            if (frameRef.current) {
-                cancelAnimationFrame(frameRef.current);
-                frameRef.current = 0;
-            }
-        };
-    }, [ready, selectedCoord, windPaths, iss, trail, prediction, modules, baseLayers, overlayLayers]);
+        // Populate layers from combined static and animated arrays
+        const combined = [...staticLayers, ...animatedLayers];
+        combined.forEach(layer => {
+            if (!layer) return;
+            const id = layer.id;
+            if (id.includes('base-') || id.includes('selected-coord')) return; // Handled separately at bottom/top
+
+            if (id.includes('nasagibs')) orderMap.nasaGIBS.push(layer);
+            else if (id.includes('night-lights')) orderMap.nightLights.push(layer);
+            else if (id.includes('temperature')) orderMap.temperature.push(layer);
+            else if (id.includes('precipitation') || id.includes('rain-trips')) orderMap.precipitation.push(layer);
+            else if (id.includes('clouds')) orderMap.clouds.push(layer);
+            else if (id.includes('twilight') || id.includes('terminator')) orderMap.dayNight.push(layer);
+            else if (id.includes('wind-trips')) orderMap.wind.push(layer);
+            else if (id.includes('marine-wave')) orderMap.marine.push(layer);
+            else if (id.includes('iss-')) orderMap.iss.push(layer);
+        });
+
+        const sorted: any[] = [];
+
+        // 1. Base Layer (always rendered at the very bottom)
+        const baseLayer = combined.find(l => l && l.id.includes('base-'));
+        if (baseLayer) sorted.push(baseLayer);
+
+        // 2. User-sorted overlay layers
+        modules.layerOrder.forEach(key => {
+            if (orderMap[key]) sorted.push(...orderMap[key]);
+        });
+
+        // 3. Selection pin/pulse layers (always rendered at the very top)
+        const cursorLayers = combined.filter(l => l && l.id.includes('selected-coord'));
+        sorted.push(...cursorLayers);
+
+        return sorted;
+    }, [staticLayers, animatedLayers, modules.layerOrder]);
 
     return (
         <div
             className="absolute inset-0 w-full h-full z-0"
             style={{ background: 'radial-gradient(circle at center, rgba(0, 229, 255, 0.08) 0%, rgba(0, 0, 0, 1) 68%)' }}
         >
+            <div className="w-full h-full" aria-label="3D GPU-accelerated Vector Globe">
+                <DeckGL
+                    views={new GlobeView({
+                        id: 'globe',
+                        controller: {
+                            inertia: 300,
+                            scrollZoom: { speed: 0.01, smooth: true },
+                            touchRotate: true,
+                            dragRotate: true,
+                        } as any,
+                    })}
+                    viewState={viewState}
+                    onViewStateChange={onViewStateChange}
+                    onClick={(info) => {
+                        if (info.coordinate && onGlobeClick) {
+                            const [lon, lat] = info.coordinate;
+                            onGlobeClick(lat, lon);
+                        }
+                    }}
+                    layers={layers}
+                    parameters={{
+                        depthTest: true,
+                        depthWriteEnabled: true,
+                        depthCompare: 'less-equal',
+                    } as any}
+                />
+            </div>
+
+            {/* CSS-based atmospheric halo */}
             <div
-                ref={containerRef}
-                className="w-full h-full"
-                aria-label="3D GPU-accelerated Vector Globe"
+                className="pointer-events-none absolute inset-0 z-10"
+                style={{
+                    background: [
+                        'radial-gradient(circle at 50% 50%, transparent 28%, rgba(0, 180, 255, 0.04) 36%, rgba(0, 120, 255, 0.025) 42%, transparent 52%)',
+                        'radial-gradient(circle at 50% 50%, transparent 30%, rgba(0, 229, 255, 0.06) 38%, rgba(0, 180, 220, 0.03) 44%, transparent 56%)',
+                    ].join(', '),
+                    filter: 'blur(6px)',
+                    mixBlendMode: 'screen',
+                }}
+                aria-hidden="true"
             />
-            {/* Globe zoom threshold indicator (dev hint) */}
+
             <div className="pointer-events-none absolute bottom-2 right-2 text-[9px] font-mono text-cyan-700/60">
                 {AUTO_SWITCH_GLOBE_MIN_ZOOM.toFixed(1)}× — auto switch
             </div>

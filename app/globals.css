@@ -320,3 +320,105 @@ body {
     border-color: rgba(0, 229, 255, 0.3) !important;
     box-shadow: 0 4px 12px rgba(0, 229, 255, 0.15) !important;
 }
+
+/* ─── Skeleton Shimmer (Faz 1 / Madde 4) ─── */
+@keyframes skeleton-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+.animate-skeleton-shimmer {
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.8s ease-in-out infinite;
+}
+
+/* ─── Slide Down (for expandable panels) ─── */
+@keyframes slide-down {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+        max-height: 0;
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+        max-height: 500px;
+    }
+}
+
+.animate-slide-down {
+    animation: slide-down 0.35s ease-out both;
+    overflow: hidden;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Faz 3 / Madde 2: WCAG AA Kontrast İyileştirmeleri
+   Parlak uydu arka planlarında bile panel metninin okunabilir
+   kalmasını sağlayan güçlendirilmiş glass varyantları.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Enhanced glass: daha koyu backdrop, daha kalın blur */
+.glass-wcag {
+    background: rgba(4, 8, 16, 0.82);
+    -webkit-backdrop-filter: blur(20px) saturate(1.3) brightness(0.7);
+    backdrop-filter: blur(20px) saturate(1.3) brightness(0.7);
+    border: 1px solid rgba(0, 229, 255, 0.22);
+    box-shadow: 0 6px 32px rgba(0, 0, 0, 0.55), 0 0 1px rgba(0, 229, 255, 0.12);
+}
+
+/* Override: tüm glass panellerinde minimum kontrast backdrop'u */
+.glass, .glass-elevated {
+    --glass-bg: rgba(6, 10, 20, 0.78);
+}
+
+/* High-contrast metin — hud-label okunabilirliği */
+.hud-label {
+    color: rgba(148, 172, 196, 0.82);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* Value text kontrast güçlendirme */
+.hud-value, .hud-value-sm, .hud-value-lg, .hud-value-xl {
+    text-shadow: 0 0 8px rgba(0, 229, 255, 0.5), 0 1px 3px rgba(0, 0, 0, 0.7);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Faz 3 / Madde 3: Dokunmatik Gestür Damping CSS
+   ═══════════════════════════════════════════════════════════════ */
+@media (pointer: coarse) {
+    /* Dokunmatik cihazlarda glassmorphism'i daha opak yap */
+    .glass, .glass-elevated, .glass-wcag {
+        background: rgba(4, 8, 16, 0.88) !important;
+        -webkit-backdrop-filter: blur(12px) !important;
+        backdrop-filter: blur(12px) !important;
+    }
+
+    /* Daha büyük dokunma hedefleri */
+    .glass button, .glass-elevated button {
+        min-height: 44px;
+        min-width: 44px;
+    }
+
+    /* Scrollbar dokunmatik uyumu */
+    ::-webkit-scrollbar {
+        width: 6px;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Faz 3 / Madde 4: Marine Overlay Renk Skalası
+   ═══════════════════════════════════════════════════════════════ */
+.marine-legend-gradient {
+    background: linear-gradient(
+        90deg,
+        #064e87 0%,
+        #1a8bcc 20%,
+        #2dd4bf 40%,
+        #fbbf24 60%,
+        #f97316 80%,
+        #ef4444 100%
+    );
+    height: 4px;
+    border-radius: 2px;
+}
+

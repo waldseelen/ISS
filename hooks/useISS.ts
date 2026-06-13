@@ -1,12 +1,13 @@
 'use client';
 
 import { fetchISS } from '@/lib/api';
+import { fetchTLE, generateSGP4Prediction, parseTLE, type TLEData } from '@/lib/sgp4';
 import type { ISSData, ISSTrailPoint } from '@/types';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 const POLL_MS = 10000;
 const MAX_TRAIL = 200;
-const PREDICTION_STEPS = 120;
+const TLE_REFRESH_MS = 3600000; // Re-fetch TLE every 1 hour
 
 /* Critique #20: Dynamically calculate orbital period using Kepler's Third Law */
 function calculateOrbitalPeriod(altitude: number): number {
@@ -29,14 +30,34 @@ export function useISS(enabled: boolean) {
     const lastUpdateTimeRef = useRef<number>(Date.now());
     const lastReportedRef = useRef<{ lat: number; lon: number } | null>(null);
 
-    const computePrediction = useCallback((data: ISSData, orbitalPeriod: number) => {
+    // SGP4 TLE state (Faz 1 / Madde 2)
+    const tleRef = useRef<TLEData | null>(null);
+    const tleTimerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
+    const lastTleFetch = useRef<number>(0);
+
+    // SGP4-based prediction generator
+    const computeSGP4Prediction = useCallback((data: ISSData) => {
+        const tle = tleRef.current;
+        if (tle) {
+            // Use real SGP4 orbit mechanics
+            const results = generateSGP4Prediction(tle, new Date(), 92.68 * 1.5, 180);
+            if (results.length > 10) {
+                return results.map(r => ({ lat: r.latitude, lon: r.longitude }));
+            }
+        }
+        // Fallback: analytical Keplerian prediction (existing method)
+        return computeKeplerianPrediction(data);
+    }, []);
+
+    const computeKeplerianPrediction = useCallback((data: ISSData) => {
+        const orbitalPeriod = calculateOrbitalPeriod(data.altitude);
+        const PREDICTION_STEPS = 120;
         const pts: { lat: number; lon: number }[] = [];
         const periodSec = orbitalPeriod * 60;
-        const inclination = 51.6 * (Math.PI / 180); // ISS orbital inclination in radians
+        const inclination = 51.6 * (Math.PI / 180);
         const angularVelocity = (2 * Math.PI) / periodSec;
         const earthRotRate = (2 * Math.PI) / 86400;
 
-        // Compute initial orbital phase from current position
         const latRad = data.latitude * (Math.PI / 180);
         const phase0 = Math.asin(Math.sin(latRad) / Math.sin(inclination));
 
@@ -44,10 +65,8 @@ export function useISS(enabled: boolean) {
             const t = (i / PREDICTION_STEPS) * periodSec;
             const phase = phase0 + angularVelocity * t;
 
-            // Latitude from orbital inclination
             const lat = Math.asin(Math.sin(inclination) * Math.sin(phase)) * (180 / Math.PI);
 
-            // Longitude with ascending node regression and Earth rotation
             const lonShift = Math.atan2(
                 Math.cos(inclination) * Math.sin(phase),
                 Math.cos(phase)
@@ -62,6 +81,45 @@ export function useISS(enabled: boolean) {
         }
         return pts;
     }, []);
+
+    // Fetch TLE from CelesTrak (Faz 1 / Madde 2)
+    useEffect(() => {
+        if (!enabled) return;
+
+        const loadTLE = async () => {
+            if (Date.now() - lastTleFetch.current < TLE_REFRESH_MS && tleRef.current) return;
+            const tle = await fetchTLE();
+            if (tle) {
+                tleRef.current = tle;
+                lastTleFetch.current = Date.now();
+                if (typeof window !== 'undefined') {
+                    localStorage.setItem('earth_tracker_tle', JSON.stringify({
+                        line1: tle.line1,
+                        line2: tle.line2,
+                        fetchedAt: Date.now(),
+                    }));
+                }
+            }
+        };
+
+        // Try loading cached TLE first
+        if (typeof window !== 'undefined' && !tleRef.current) {
+            try {
+                const cached = localStorage.getItem('earth_tracker_tle');
+                if (cached) {
+                    const parsed = JSON.parse(cached);
+                    if (Date.now() - parsed.fetchedAt < TLE_REFRESH_MS * 24) {
+                        tleRef.current = parseTLE(parsed.line1, parsed.line2);
+                        lastTleFetch.current = parsed.fetchedAt;
+                    }
+                }
+            } catch { /* silent */ }
+        }
+
+        loadTLE();
+        tleTimerRef.current = setInterval(loadTLE, TLE_REFRESH_MS);
+        return () => clearInterval(tleTimerRef.current);
+    }, [enabled]);
 
     // Frame-by-frame interpolation loop — thresholded to prevent 60fps state churn
     useEffect(() => {
@@ -124,18 +182,17 @@ export function useISS(enabled: boolean) {
                 if (cachedPred) {
                     setPrediction(JSON.parse(cachedPred));
                 } else {
-                    const period = calculateOrbitalPeriod(parsed.altitude);
-                    setPrediction(computePrediction(parsed, period));
+                    setPrediction(computeSGP4Prediction(parsed));
                 }
             }
         } catch { /* silent */ }
-    }, [computePrediction]);
+    }, [computeSGP4Prediction]);
 
     useEffect(() => {
         if (enabled) {
             loadFromCache();
         }
-    }, [enabled, loadFromCache]);
+    }, [enabled]);
 
     useEffect(() => {
         if (!enabled) return;
@@ -158,8 +215,7 @@ export function useISS(enabled: boolean) {
                         return sliced;
                     });
 
-                    const period = calculateOrbitalPeriod(data.altitude);
-                    const pred = computePrediction(data, period);
+                    const pred = computeSGP4Prediction(data);
                     setPrediction(pred);
                     if (typeof window !== 'undefined') {
                         localStorage.setItem('earth_tracker_iss_pred', JSON.stringify(pred));
@@ -174,9 +230,9 @@ export function useISS(enabled: boolean) {
         poll();
         timer.current = setInterval(poll, POLL_MS);
         return () => clearInterval(timer.current);
-    }, [enabled, computePrediction, loadFromCache]);
+    }, [enabled]);
 
-    return { iss: smoothIss || iss, rawIss: iss, trail, prediction };
+    return { iss: smoothIss || iss, rawIss: iss, trail, prediction, tle: tleRef.current };
 }
 
 export function splitTrailByAntimeridian(
@@ -188,7 +244,9 @@ export function splitTrailByAntimeridian(
     for (let i = 1; i < trail.length; i++) {
         const prev = trail[i - 1];
         const cur = trail[i];
-        if (Math.abs(cur.lon - prev.lon) > 180) {
+        const dLon = Math.abs(cur.lon - prev.lon);
+        const dLat = Math.abs(cur.lat - prev.lat);
+        if (dLon > 180 || Math.sqrt(dLon * dLon + dLat * dLat) > 25) {
             if (current.length > 1) segments.push({ path: current });
             current = [[cur.lon, cur.lat]];
         } else {

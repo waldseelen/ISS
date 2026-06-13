@@ -1,3 +1,5 @@
+import { fetchWithRetry } from './fetchWithRetry';
+
 /* ─── Tile URL Templates ─── */
 
 export function yesterdayISO(): string {
@@ -35,8 +37,7 @@ let rainFetchTime = 0;
 export async function getRainViewerTimestamp(): Promise<number | null> {
     if (cachedRainTimestamp && Date.now() - rainFetchTime < 300_000) return cachedRainTimestamp;
     try {
-        const res = await fetch('https://api.rainviewer.com/public/weather-maps.json');
-        const data = await res.json();
+        const data = await fetchWithRetry<any>('https://api.rainviewer.com/public/weather-maps.json', { maxRetries: 2 });
         const past = data?.radar?.past;
         if (past && past.length > 0) {
             cachedRainTimestamp = past[past.length - 1].time;
