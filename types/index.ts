@@ -24,7 +24,6 @@ export interface ModuleState {
     wind: boolean;
     precipitation: boolean;
     temperature: boolean;
-    iss: boolean;
     marine: boolean;
     clouds: boolean;
     performanceMode: boolean;
@@ -35,7 +34,7 @@ export interface ModuleState {
 }
 
 /* Faz 3 / Madde 1: Sıralanabilir overlay katman anahtarları */
-export type LayerOrderKey = 'nasaGIBS' | 'nightLights' | 'temperature' | 'precipitation' | 'clouds' | 'dayNight' | 'wind' | 'marine' | 'iss';
+export type LayerOrderKey = 'nasaGIBS' | 'nightLights' | 'temperature' | 'precipitation' | 'clouds' | 'dayNight' | 'wind' | 'marine';
 
 export interface ModuleGroups {
     baseStyle: BaseStyle;
@@ -60,21 +59,7 @@ export interface WeatherData {
     weatherCode: number;
 }
 
-export interface ISSData {
-    latitude: number;
-    longitude: number;
-    altitude: number;
-    velocity: number;
-    visibility: string;
-    timestamp: number;
-}
 
-export interface ISSTrailPoint {
-    lat: number;
-    lon: number;
-    alt: number;
-    time: number;
-}
 
 export interface MarineData {
     latitude: number;
@@ -179,16 +164,4 @@ export const WMO_CODES: Record<number, { label: string; icon: string }> = {
     96: { label: 'Dolu ile Fırtına', icon: '⛈️' },
     99: { label: 'Şiddetli Dolu Fırtınası', icon: '⛈️' },
 };
-
-/* ─── ISS Pass Prediction ─── */
-export interface ISSPass {
-    startTime: Date;
-    peakTime: Date;
-    endTime: Date;
-    maxElevation: number;
-    startAzimuth: number;
-    peakAzimuth: number;
-    endAzimuth: number;
-    durationSeconds: number;
-}
 

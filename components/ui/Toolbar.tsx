@@ -16,7 +16,6 @@ const MODE_TOOLS: { key: keyof ModuleState; icon: string; label: string }[] = [
 const LAYER_TOOLS: { key: keyof ModuleState; icon: string; label: string }[] = [
     { key: 'weather', icon: '🌤️', label: 'Hava Durumu' },
     { key: 'wind', icon: '💨', label: 'Rüzgar' },
-    { key: 'iss', icon: '🛰️', label: 'ISS' },
     { key: 'marine', icon: '🌊', label: 'Deniz' },
     { key: 'precipitation', icon: '🌧️', label: 'Yağış' },
     { key: 'temperature', icon: '🌡️', label: 'Sıcaklık' },
@@ -27,7 +26,7 @@ const LAYER_TOOLS: { key: keyof ModuleState; icon: string; label: string }[] = [
     { key: 'topo', icon: '⛰️', label: 'Topo' },
     { key: 'street', icon: '🛣️', label: 'Yol' },
     { key: 'satellite', icon: '📡', label: 'Uydu' },
-    { key: 'performanceMode', icon: '⚡', label: 'Performans Modu' }, // Critique #18: Performance Mode toggle
+    { key: 'performanceMode', icon: '⚡', label: 'Performans Modu' },
 ];
 
 const getLocalizedLabel = (key: string, defaultLabel: string) => {
@@ -36,7 +35,6 @@ const getLocalizedLabel = (key: string, defaultLabel: string) => {
         case 'map2D': return getLanguage() === 'tr' ? '2D Harita' : '2D Map';
         case 'weather': return getLanguage() === 'tr' ? 'Hava Durumu' : 'Weather';
         case 'wind': return getLanguage() === 'tr' ? 'Rüzgar' : 'Wind';
-        case 'iss': return 'ISS';
         case 'marine': return getLanguage() === 'tr' ? 'Deniz' : 'Marine';
         case 'precipitation': return getLanguage() === 'tr' ? 'Yağış' : 'Precipitation';
         case 'temperature': return getLanguage() === 'tr' ? 'Sıcaklık' : 'Temperature';

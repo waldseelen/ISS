@@ -1,4 +1,4 @@
-import type { GeoCity, ISSData, MarineData, WeatherData, WindPoint } from '@/types';
+import type { GeoCity, MarineData, WeatherData, WindPoint } from '@/types';
 import { WMO_CODES } from '@/types';
 import { fetchWithRetry, safeNum, safeStr } from './fetchWithRetry';
 
@@ -27,22 +27,54 @@ export async function fetchWeather(lat: number, lon: number): Promise<WeatherDat
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   ISS — wheretheiss.at
-   (Faz 1: fetchWithRetry + field validation)
+   API HEALTH CHECK MANIFEST & RATE LIMITS
    ═══════════════════════════════════════════════════════════════ */
-export async function fetchISS(): Promise<ISSData | null> {
-    const json = await fetchWithRetry<Record<string, any>>(
-        'https://api.wheretheiss.at/v1/satellites/25544',
-    );
-    if (!json || typeof json.latitude === 'undefined') return null;
-    return {
-        latitude: safeNum(json.latitude),
-        longitude: safeNum(json.longitude),
-        altitude: safeNum(json.altitude),
-        velocity: safeNum(json.velocity),
-        visibility: safeStr(json.visibility, 'unknown'),
-        timestamp: safeNum(json.timestamp),
-    };
+export const API_MANIFEST = {
+    openMeteo: {
+        name: 'Open-Meteo',
+        baseUrl: 'https://api.open-meteo.com',
+        rateLimit: '10000 req/day',
+        endpoints: ['/v1/forecast', '/v1/elevation']
+    },
+    openMeteoMarine: {
+        name: 'Open-Meteo Marine',
+        baseUrl: 'https://marine-api.open-meteo.com',
+        rateLimit: '10000 req/day',
+        endpoints: ['/v1/marine']
+    },
+    openMeteoGeocoding: {
+        name: 'Open-Meteo Geocoding',
+        baseUrl: 'https://geocoding-api.open-meteo.com',
+        rateLimit: '10000 req/day',
+        endpoints: ['/v1/search']
+    },
+    openMeteoArchive: {
+        name: 'Open-Meteo Archive',
+        baseUrl: 'https://archive-api.open-meteo.com',
+        rateLimit: '10000 req/day',
+        endpoints: ['/v1/archive']
+    },
+    nasaGIBS: {
+        name: 'NASA GIBS',
+        baseUrl: 'https://gibs.earthdata.nasa.gov',
+        rateLimit: 'Fair use, no strict limit',
+        endpoints: ['/wmts/epsg3857/best/*']
+    },
+    rainViewer: {
+        name: 'RainViewer',
+        baseUrl: 'https://api.rainviewer.com',
+        rateLimit: 'Fair use',
+        endpoints: ['/public/weather-maps.json']
+    }
+};
+
+export async function checkApiHealth() {
+    const status: Record<string, boolean> = {};
+    try {
+        const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=0&longitude=0&current=temperature_2m', { method: 'HEAD' });
+        status.openMeteo = res.ok;
+    } catch { status.openMeteo = false; }
+    return status;
 }
 
 
@@ -78,12 +110,7 @@ export const TRANSLATIONS = {
         highQuality: 'Yüksek Kalite',
         performanceMode: 'Performans Modu',
         latitude: 'Enlem',
-        longitude: 'Boylam',
-        altitude: 'Yükseklik',
-        velocity: 'Hız',
-        orbit: 'Yörünge',
-        prediction: 'Tahmin',
-        issTracker: 'ISS Takip'
+        longitude: 'Boylam'
     },
     en: {
         windDirs: ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'],
@@ -113,12 +140,7 @@ export const TRANSLATIONS = {
         highQuality: 'High Quality',
         performanceMode: 'Performance Mode',
         latitude: 'Latitude',
-        longitude: 'Longitude',
-        altitude: 'Altitude',
-        velocity: 'Velocity',
-        orbit: 'Orbit',
-        prediction: 'Prediction',
-        issTracker: 'ISS Tracker'
+        longitude: 'Longitude'
     }
 };
 

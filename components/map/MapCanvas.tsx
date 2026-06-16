@@ -2,10 +2,9 @@
 
 import { generateWindPaths, getWindColor, type WindTrajectory } from '@/lib/map';
 import { AUTO_SWITCH_MAP_MAX_ZOOM, get2DStyleUrl } from '@/lib/canvasStyle';
-import { CURSOR_PULSE_AMP, CURSOR_PULSE_BASE, CURSOR_PULSE_HZ, ISS_PULSE_AMP, ISS_PULSE_BASE, ISS_PULSE_HZ, pulseRadius } from '@/lib/pulse';
-import { splitTrailByAntimeridian } from '@/hooks/useISS';
+import { CURSOR_PULSE_AMP, CURSOR_PULSE_BASE, CURSOR_PULSE_HZ, pulseRadius } from '@/lib/pulse';
 import type { TwilightBand } from '@/hooks/useSun';
-import type { BaseStyle, ISSData, LayerOrderKey, MarineData, ModuleState, TerminatorPolygon, WindPoint } from '@/types';
+import type { BaseStyle, LayerOrderKey, MarineData, ModuleState, TerminatorPolygon, WindPoint } from '@/types';
 import { MapboxOverlay } from '@deck.gl/mapbox';
 import { TripsLayer } from '@deck.gl/geo-layers';
 import { PathLayer, ScatterplotLayer, PolygonLayer } from '@deck.gl/layers';
@@ -14,9 +13,6 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 
 interface Props {
     modules: ModuleState;
-    iss: ISSData | null;
-    trail: { lat: number; lon: number }[];
-    prediction: { lat: number; lon: number }[];
     flyTarget: { lat: number; lon: number } | null;
     wind?: WindPoint[];
     marine?: MarineData | null;
@@ -30,9 +26,6 @@ interface Props {
 
 export default function MapCanvas({
     modules,
-    iss,
-    trail,
-    prediction,
     flyTarget,
     wind = [],
     marine,
@@ -53,7 +46,6 @@ export default function MapCanvas({
     const [anim, setAnim] = useState({
         tripTime: 0,
         cursorPhase: 0,
-        issPhase: Math.PI / 3,
         cursorFade: 0,
     });
 
@@ -88,7 +80,6 @@ export default function MapCanvas({
             setAnim(prev => {
                 const nextTripTime = (prev.tripTime + clampedDelta * ps.speedMultiplier) % 12;
                 const nextCursorPhase = prev.cursorPhase + clampedDelta;
-                const nextIssPhase = prev.issPhase + clampedDelta;
                 let nextCursorFade = prev.cursorFade;
 
                 if (selectedCoord) {
@@ -100,7 +91,6 @@ export default function MapCanvas({
                 return {
                     tripTime: nextTripTime,
                     cursorPhase: nextCursorPhase,
-                    issPhase: nextIssPhase,
                     cursorFade: nextCursorFade,
                 };
             });
@@ -204,11 +194,9 @@ export default function MapCanvas({
     useEffect(() => {
         if (!mapRef.current || !overlayRef.current || !ready) return;
 
-        const showISS = !!modules.iss && !!iss;
         const showCursor = anim.cursorFade > 0.001;
 
         const cursorRadius = pulseRadius(anim.cursorPhase, CURSOR_PULSE_HZ, CURSOR_PULSE_AMP, CURSOR_PULSE_BASE);
-        const issRadius = pulseRadius(anim.issPhase, ISS_PULSE_HZ, ISS_PULSE_AMP, ISS_PULSE_BASE);
 
         const orderMap: Record<LayerOrderKey, any[]> = {
             nasaGIBS: [],
@@ -218,8 +206,7 @@ export default function MapCanvas({
             clouds: [],
             dayNight: [],
             wind: [],
-            marine: [],
-            iss: []
+            marine: []
         };
 
         // Precipitation trips
@@ -309,55 +296,7 @@ export default function MapCanvas({
             }));
         }
 
-        // ISS trail and spaceship
-        if (showISS) {
-            const trailSegments = splitTrailByAntimeridian(trail);
-            const predictionSegments = splitTrailByAntimeridian(prediction);
-
-            orderMap.iss.push(
-                new PathLayer({
-                    id: 'iss-trail',
-                    data: trailSegments,
-                    getPath: d => d.path as [number, number][],
-                    getColor: [0, 229, 255, 160],
-                    getWidth: 4,
-                    widthMinPixels: 2.5,
-                    capRounded: true,
-                    jointRounded: true,
-                }),
-                new PathLayer({
-                    id: 'iss-prediction',
-                    data: predictionSegments,
-                    getPath: d => d.path as [number, number][],
-                    getColor: [255, 255, 255, 75],
-                    getWidth: 2.5,
-                    widthMinPixels: 1.8,
-                    dashJustified: true,
-                }),
-                new ScatterplotLayer({
-                    id: 'iss-glow',
-                    data: [iss],
-                    getPosition: d => [d.longitude, d.latitude],
-                    radiusUnits: 'pixels',
-                    getRadius: issRadius,
-                    getFillColor: [0, 229, 255, 22],
-                    stroked: true,
-                    getLineColor: [0, 229, 255, 100],
-                    lineWidthMinPixels: 1,
-                }),
-                new ScatterplotLayer({
-                    id: 'iss-core',
-                    data: [iss],
-                    getPosition: d => [d.longitude, d.latitude],
-                    radiusUnits: 'pixels',
-                    getRadius: 8,
-                    getFillColor: [255, 255, 255, 230],
-                    stroked: true,
-                    getLineColor: [0, 229, 255, 255],
-                    lineWidthMinPixels: 2.2,
-                })
-            );
-        }
+        // ISS removed
 
         const orderedLayers: any[] = [];
         modules.layerOrder.forEach(key => {
@@ -393,7 +332,7 @@ export default function MapCanvas({
         ].filter(Boolean);
 
         overlayRef.current.setProps({ layers: [...orderedLayers, ...cursorLayers] });
-    }, [ready, anim, windPaths, iss, marine, trail, prediction, modules, terminator, twilightBands, ps]);
+    }, [ready, anim, windPaths, marine, modules, terminator, twilightBands, ps]);
 
     return (
         <div className="absolute inset-0 w-full h-full bg-black z-0">

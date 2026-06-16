@@ -20,12 +20,12 @@ const PERF_PARTICLES: ParticleSettings = {
 
 /* Faz 3 / Madde 1: Varsayılan katman render sırası (düşük index = altta render edilir) */
 const DEFAULT_LAYER_ORDER: LayerOrderKey[] = [
-    'nasaGIBS', 'nightLights', 'temperature', 'precipitation', 'clouds', 'dayNight', 'wind', 'marine', 'iss',
+    'nasaGIBS', 'nightLights', 'temperature', 'precipitation', 'clouds', 'dayNight', 'wind', 'marine',
 ];
 
 const DEFAULT_STATE: ModuleState = {
-    globe3D: true,
-    map2D: false,
+    globe3D: false,
+    map2D: true,
     satellite: true,
     street: false,
     topo: false,
@@ -36,7 +36,6 @@ const DEFAULT_STATE: ModuleState = {
     wind: false,
     precipitation: false,
     temperature: false,
-    iss: true,
     marine: false,
     clouds: false,
     performanceMode: false,

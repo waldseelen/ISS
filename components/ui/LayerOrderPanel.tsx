@@ -18,7 +18,6 @@ const LAYER_LABELS: Record<LayerOrderKey, { tr: string; en: string; icon: string
     dayNight: { tr: 'Gündüz/Gece', en: 'Day/Night', icon: '🌗' },
     wind: { tr: 'Rüzgar', en: 'Wind', icon: '💨' },
     marine: { tr: 'Deniz', en: 'Marine', icon: '🌊' },
-    iss: { tr: 'ISS', en: 'ISS', icon: '🛰️' },
 };
 
 function isLayerActive(key: LayerOrderKey, modules: ModuleState): boolean {
@@ -31,7 +30,6 @@ function isLayerActive(key: LayerOrderKey, modules: ModuleState): boolean {
         case 'dayNight': return modules.dayNight;
         case 'wind': return modules.wind;
         case 'marine': return modules.marine;
-        case 'iss': return modules.iss;
     }
 }
 

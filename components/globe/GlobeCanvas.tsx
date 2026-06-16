@@ -2,11 +2,10 @@
 
 import { generateWindPaths, getWindColor, type WindTrajectory } from '@/lib/map';
 import { get3DSourceUrl, AUTO_SWITCH_GLOBE_MIN_ZOOM } from '@/lib/canvasStyle';
-import { CURSOR_PULSE_AMP, CURSOR_PULSE_BASE, CURSOR_PULSE_HZ, ISS_PULSE_AMP, ISS_PULSE_BASE, ISS_PULSE_HZ, pulseRadius } from '@/lib/pulse';
+import { CURSOR_PULSE_AMP, CURSOR_PULSE_BASE, CURSOR_PULSE_HZ, pulseRadius } from '@/lib/pulse';
 import { getRainViewerTimestamp, TILES, yesterdayISO } from '@/lib/tiles';
-import { splitTrailByAntimeridian } from '@/hooks/useISS';
 import type { TwilightBand } from '@/hooks/useSun';
-import type { BaseStyle, ISSData, LayerOrderKey, MarineData, ModuleState, TerminatorPolygon, WindPoint } from '@/types';
+import type { BaseStyle, LayerOrderKey, MarineData, ModuleState, TerminatorPolygon, WindPoint } from '@/types';
 import { _GlobeView as GlobeView, FlyToInterpolator } from '@deck.gl/core';
 import DeckGL from '@deck.gl/react';
 import { TripsLayer } from '@deck.gl/geo-layers';
@@ -15,9 +14,6 @@ import { TileLayer } from '@deck.gl/geo-layers';
 import { useEffect, useMemo, useState, useCallback } from 'react';
 
 interface Props {
-    iss: ISSData | null;
-    trail: { lat: number; lon: number }[];
-    prediction: { lat: number; lon: number }[];
     wind: WindPoint[];
     marine: MarineData | null;
     modules: ModuleState;
@@ -52,9 +48,6 @@ function makeTileLayer(id: string, data: string, opacity: number, minZoom: numbe
 }
 
 export default function GlobeCanvas({
-    iss,
-    trail,
-    prediction,
     wind,
     marine,
     modules,
@@ -81,7 +74,6 @@ export default function GlobeCanvas({
     const [anim, setAnim] = useState({
         tripTime: 0,
         cursorPhase: 0,
-        issPhase: Math.PI / 3,
         cursorFade: 0,
     });
 
@@ -137,7 +129,6 @@ export default function GlobeCanvas({
             setAnim(prev => {
                 const nextTripTime = (prev.tripTime + clampedDelta * ps.speedMultiplier) % 12;
                 const nextCursorPhase = prev.cursorPhase + clampedDelta;
-                const nextIssPhase = prev.issPhase + clampedDelta;
                 let nextCursorFade = prev.cursorFade;
 
                 if (selectedCoord) {
@@ -149,7 +140,6 @@ export default function GlobeCanvas({
                 return {
                     tripTime: nextTripTime,
                     cursorPhase: nextCursorPhase,
-                    issPhase: nextIssPhase,
                     cursorFade: nextCursorFade,
                 };
             });
@@ -226,11 +216,9 @@ export default function GlobeCanvas({
     // Animated layers reconstructed per time-frame
     const animatedLayers = useMemo(() => {
         const list: any[] = [];
-        const showISS = !!modules.iss && !!iss;
         const showCursor = anim.cursorFade > 0.001;
 
         const cursorRadius = pulseRadius(anim.cursorPhase, CURSOR_PULSE_HZ, CURSOR_PULSE_AMP, CURSOR_PULSE_BASE);
-        const issRadius = pulseRadius(anim.issPhase, ISS_PULSE_HZ, ISS_PULSE_AMP, ISS_PULSE_BASE);
 
         // Trips rain layer
         if (modules.tileGroup === 'precipitation' && windPaths.length > 0) {
@@ -290,58 +278,7 @@ export default function GlobeCanvas({
             }));
         }
 
-        // ISS trail layers
-        if (showISS) {
-            const trailSegments = splitTrailByAntimeridian(trail);
-            const predictionSegments = splitTrailByAntimeridian(prediction);
-
-            list.push(
-                new PathLayer({
-                    id: 'iss-trail-3d',
-                    data: trailSegments,
-                    getPath: (d: any) => d.path as [number, number][],
-                    getColor: [0, 229, 255, 160],
-                    getWidth: 4,
-                    widthMinPixels: 2.5,
-                    capRounded: true,
-                    jointRounded: true,
-                    parameters: { depthWriteEnabled: false } as any,
-                }),
-                new PathLayer({
-                    id: 'iss-prediction-3d',
-                    data: predictionSegments,
-                    getPath: (d: any) => d.path as [number, number][],
-                    getColor: [255, 255, 255, 75],
-                    getWidth: 2.5,
-                    widthMinPixels: 1.8,
-                    parameters: { depthWriteEnabled: false } as any,
-                }),
-                new ScatterplotLayer({
-                    id: 'iss-glow-3d',
-                    data: [iss],
-                    getPosition: d => [d.longitude, d.latitude],
-                    radiusUnits: 'pixels',
-                    getRadius: issRadius,
-                    getFillColor: [0, 229, 255, 22],
-                    stroked: true,
-                    getLineColor: [0, 229, 255, 100],
-                    lineWidthMinPixels: 1,
-                    parameters: { depthWriteEnabled: false } as any,
-                }),
-                new ScatterplotLayer({
-                    id: 'iss-core-3d',
-                    data: [iss],
-                    getPosition: d => [d.longitude, d.latitude],
-                    radiusUnits: 'pixels',
-                    getRadius: 9,
-                    getFillColor: [255, 255, 255, 230],
-                    stroked: true,
-                    getLineColor: [0, 229, 255, 255],
-                    lineWidthMinPixels: 2.2,
-                    parameters: { depthWriteEnabled: false } as any,
-                })
-            );
-        }
+        // ISS trail layers removed
 
         // Selected coordinates cursor layers
         if (showCursor && selectedCoord) {
@@ -373,9 +310,9 @@ export default function GlobeCanvas({
 
         return list;
     }, [
-        modules.iss, modules.wind, modules.tileGroup, modules.marine,
-        iss, marine, windPaths, trail, prediction, selectedCoord,
-        anim.tripTime, anim.cursorPhase, anim.issPhase, anim.cursorFade,
+        modules.wind, modules.tileGroup, modules.marine,
+        marine, windPaths, selectedCoord,
+        anim.tripTime, anim.cursorPhase, anim.cursorFade,
         ps.width, ps.trailLength, ps.speedMultiplier
     ]);
 
@@ -389,8 +326,7 @@ export default function GlobeCanvas({
             clouds: [],
             dayNight: [],
             wind: [],
-            marine: [],
-            iss: []
+            marine: []
         };
 
         // Populate layers from combined static and animated arrays
@@ -408,7 +344,6 @@ export default function GlobeCanvas({
             else if (id.includes('twilight') || id.includes('terminator')) orderMap.dayNight.push(layer);
             else if (id.includes('wind-trips')) orderMap.wind.push(layer);
             else if (id.includes('marine-wave')) orderMap.marine.push(layer);
-            else if (id.includes('iss-')) orderMap.iss.push(layer);
         });
 
         const sorted: any[] = [];

@@ -1,6 +1,5 @@
 'use client';
 
-import { useISS } from '@/hooks/useISS';
 import { useModules } from '@/hooks/useModules';
 import { useSun } from '@/hooks/useSun';
 import { AUTO_SWITCH_GLOBE_MIN_ZOOM, AUTO_SWITCH_MAP_MAX_ZOOM } from '@/lib/canvasStyle';
@@ -24,37 +23,13 @@ import LayerOrderPanel from '@/components/ui/LayerOrderPanel';
 
 const GlobeCanvas = dynamic(() => import('@/components/globe/GlobeCanvas'), { ssr: false });
 const MapCanvas = dynamic(() => import('@/components/map/MapCanvas'), { ssr: false });
-const LazyISSPanel = dynamic(() => import('@/components/panels/ISSPanel'), { ssr: false });
 const LazyLocationDetailPanel = dynamic(() => import('@/components/panels/LocationDetailPanel'), { ssr: false });
 const LazyWeatherPanel = dynamic(() => import('@/components/panels/WeatherPanel'), { ssr: false });
 const LazyBookmarksPanel = dynamic(() => import('@/components/panels/BookmarksPanel'), { ssr: false });
-const LazyLiveStreamPanel = dynamic(() => import('@/components/panels/LiveStreamPanel'), { ssr: false });
-const LazyPassPredictorPanel = dynamic(() => import('@/components/panels/PassPredictorPanel'), { ssr: false });
 
-const getISSDistance = (issLat: number, issLon: number, issAlt: number, lat: number, lon: number) => {
-    const R = 6371;
-    const r1 = R + issAlt;
-    const r2 = R; // ground level height
-
-    const phi1 = (issLat * Math.PI) / 180;
-    const phi2 = (lat * Math.PI) / 180;
-    const theta1 = (issLon * Math.PI) / 180;
-    const theta2 = (lon * Math.PI) / 180;
-
-    const x1 = r1 * Math.cos(phi1) * Math.cos(theta1);
-    const y1 = r1 * Math.cos(phi1) * Math.sin(theta1);
-    const z1 = r1 * Math.sin(phi1);
-
-    const x2 = r2 * Math.cos(phi2) * Math.cos(theta2);
-    const y2 = r2 * Math.cos(phi2) * Math.sin(theta2);
-    const z2 = r2 * Math.sin(phi2);
-
-    return Math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2 + (z1 - z2) ** 2);
-};
 
 export default function Home() {
     const { modules, toggle, updateParticleSettings, reorderLayers, baseStyle } = useModules();
-    const { iss, trail, prediction, tle } = useISS(modules.iss);
     const { terminator, twilightBands } = useSun();
     const { addToast } = useToast();
 
@@ -167,27 +142,6 @@ export default function Home() {
         }
     }, [loadLocationData, addToast]);
 
-    // ISS Yakınlık Radar Sesi
-    useEffect(() => {
-        if (!iss || !selectedCoord) return;
-        
-        const dist = getISSDistance(
-            iss.latitude,
-            iss.longitude,
-            iss.altitude,
-            selectedCoord.lat,
-            selectedCoord.lon
-        );
-
-        if (dist < 1000) {
-            const now = Date.now();
-            if (now - lastRadarBeepRef.current >= 12000) {
-                playBeep('radar');
-                lastRadarBeepRef.current = now;
-            }
-        }
-    }, [iss, selectedCoord]);
-
     const handleCameraChange = useCallback((zoom: number) => {
         // Auto-switch disabled. Mod geçişleri sadece Toolbar üzerinden manuel olarak yapılacaktır.
     }, []);
@@ -223,9 +177,6 @@ export default function Home() {
                 {isGlobe && (
                     <ErrorBoundary>
                         <GlobeCanvas
-                            iss={iss}
-                            trail={trail}
-                            prediction={prediction}
                             wind={wind}
                             marine={marine}
                             modules={modules}
@@ -243,9 +194,6 @@ export default function Home() {
                     <ErrorBoundary>
                         <MapCanvas
                             modules={modules}
-                            iss={iss}
-                            trail={trail}
-                            prediction={prediction}
                             flyTarget={flyTarget}
                             wind={wind}
                             marine={marine}
@@ -288,27 +236,6 @@ export default function Home() {
                     ) : (
                         <LazyWeatherPanel weather={weather} marine={marine} isFetching={isFetchingData} />
                     )
-                )}
-                {modules.iss && (
-                    iss ? (
-                        <LazyISSPanel iss={iss} prediction={prediction} />
-                    ) : (
-                        <SkeletonLoader variant="iss" />
-                    )
-                )}
-                {modules.iss && (
-                    <LazyLiveStreamPanel
-                        selectedLon={selectedCoord?.lon ?? null}
-                        issLon={iss?.longitude ?? null}
-                        locationName={selectedLocation?.locationName ?? null}
-                    />
-                )}
-                {modules.iss && selectedCoord && (
-                    <LazyPassPredictorPanel
-                        tle={tle}
-                        latitude={selectedCoord.lat}
-                        longitude={selectedCoord.lon}
-                    />
                 )}
                 <LazyBookmarksPanel
                     onFlyTo={handleFlyTo}
