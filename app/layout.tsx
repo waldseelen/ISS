@@ -1,3 +1,4 @@
+import { SpeedInsights } from '@vercel/speed-insights/next'
 import type { Metadata } from 'next';
 import './globals.css';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -24,7 +25,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     rel="stylesheet"
                 />
             </head>
-            <body className="bg-black overflow-hidden"><ToastProvider>{children}</ToastProvider></body>
+            <body className="bg-black overflow-hidden"><ToastProvider>{children}</ToastProvider>  <SpeedInsights />
+      </body>
         </html>
     );
 }
