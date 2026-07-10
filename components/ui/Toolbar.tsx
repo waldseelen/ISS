@@ -9,8 +9,8 @@ interface Props {
 }
 
 const MODE_TOOLS: { key: keyof ModuleState; icon: string; label: string }[] = [
-    { key: 'globe3D', icon: '🌐', label: '3D Küre' },
-    { key: 'map2D', icon: '🗺️', label: '2D Harita' },
+    { key: 'globe3D', icon: '🌐', label: 'Küre Görünümü' },
+    { key: 'map2D', icon: '🗺️', label: 'Düz Harita' },
 ];
 
 const LAYER_TOOLS: { key: keyof ModuleState; icon: string; label: string }[] = [
@@ -31,8 +31,8 @@ const LAYER_TOOLS: { key: keyof ModuleState; icon: string; label: string }[] = [
 
 const getLocalizedLabel = (key: string, defaultLabel: string) => {
     switch (key) {
-        case 'globe3D': return getLanguage() === 'tr' ? '3D Küre' : '3D Globe';
-        case 'map2D': return getLanguage() === 'tr' ? '2D Harita' : '2D Map';
+        case 'globe3D': return getLanguage() === 'tr' ? 'Küre Görünümü' : 'Globe View';
+        case 'map2D': return getLanguage() === 'tr' ? 'Düz Harita' : 'Flat Map';
         case 'weather': return getLanguage() === 'tr' ? 'Hava Durumu' : 'Weather';
         case 'wind': return getLanguage() === 'tr' ? 'Rüzgar' : 'Wind';
         case 'marine': return getLanguage() === 'tr' ? 'Deniz' : 'Marine';

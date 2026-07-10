@@ -321,3 +321,39 @@ Büyük veri kümelerinin render performansı ve tarayıcı bellek sızıntılar
 ---
 **Özet Değerlendirme:**
 Tüm fazlar (Faz 1 - Faz 11) tamamen tamamlanmıştır. API istekleri `fetchWithRetry` yapısıyla korunmuş, SGP4 yörünge mekaniği entegrasyonu tamamlanmış, Z-fighting, WebGL context loss recovery, Gece/Gündüz şerit bölümleme (tessellation), React infinite render loop, HMR çökme korumaları, bildirimsel React mimarisine geçiş ve GC/bellek optimizasyonu çözümleri başarıyla uygulanmıştır. Yapılan kod iyileştirmeleri ve görsel düzeltmelerle birlikte proje hatasız ve uyarısız derlenmektedir (`next build ✓`).
+
+---
+
+## ✅ Faz 12: Birleşik Render Motoru (Kesintisiz 2D↔3D) ve Stabilite — TAMAMLANDI
+
+Projedeki en köklü mimari sorun giderildi: iki ayrı tuval motorunun (deck.gl `GlobeView` + MapLibre) birbirini söküp takması. Bu ikilik hem kesintisiz geçişi imkânsız kılıyor hem de kırılma, titreşim, donma ve katman karışıklığı sorunlarının kaynağını oluşturuyordu.
+
+### 1. Tek Motora Birleştirme — ÇÖZÜLDÜ
+> [!IMPORTANT]
+> **Eleştiri:** `app/page.tsx`, `isGlobe` durumuna göre `GlobeCanvas` (DeckGL/GlobeView) ile `MapCanvas` (MapLibre) bileşenlerini karşılıklı olarak mount/unmount ediyordu. Her geçişte bir WebGL bağlamı yok edilip diğeri sıfırdan kuruluyor, aradaki siyah flaş 600ms'lik sahte bir CSS fade ile maskeleniyordu. İki ayrı katman pipeline'ı tutarsızlığa ve "bir tarafta düzeltilen bug'ın diğerinde kalmasına" yol açıyordu.
+>
+> **Çözüm:** `components/earth/EarthCanvas.tsx` — tek MapLibre GL v5 motoru + deck.gl `MapboxOverlay` (interleaved). MapLibre'in yerleşik **globe projeksiyonu** (`setProjection`) sayesinde uzaklaşınca küre, yakınlaşınca düz harita **kesintisiz** morph eder. `@deck.gl/mapbox` projeksiyonu otomatik algılayıp (`getDefaultView` → GlobeView/MapView) overlay katmanlarını senkronlar. Eski `GlobeCanvas.tsx` ve `MapCanvas.tsx` kaldırıldı; `page.tsx`'teki mod söküp-takma ve sahte fade silindi.
+
+### 2. Altlık/Kaynak Tutarlılığı (OSM / NASA) — ÇÖZÜLDÜ
+> [!WARNING]
+> **Eleştiri:** `lib/canvasStyle.ts` içinde 2D'nin üç altlığı (satellite/street/topo) aynı CartoDB URL'sine gidiyordu — yani 2D'de altlık seçimi hiçbir şey yapmıyordu. Ayrıca 2D (CartoDB vektör) ile 3D (ESRI/OSM/OpenTopo raster) bambaşka altlık gösteriyordu. NASA GIBS overlay'leri yalnızca 3D'de render ediliyor, 2D'de kayboluyordu.
+>
+> **Çözüm:** `canvasStyle.ts` raster tabanlı `buildBaseStyle()` ile yeniden yazıldı: **satellite → Esri World Imagery, street → OpenStreetMap, topo → OpenTopoMap** — her iki projeksiyonda tutarlı. NASA GIBS / gece ışıkları / sıcaklık / bulut / RainViewer katmanları tek pipeline'da deck.gl overlay olarak eklendiğinden artık hem 2D hem 3D'de görünür. `lib/tiles.ts`'teki ölü altlık girişleri temizlendi.
+
+### 3. Render Stabilitesi (Donma/Titreşim) — ÇÖZÜLDÜ
+> [!CAUTION]
+> **Eleştiri:** `MapCanvas`'ın katman kuran `useEffect`'i bağımlılığında tüm `anim` nesnesini tutuyordu → saniyede ~60 kez tüm TripsLayer/PolygonLayer/ScatterplotLayer nesneleri yeniden kuruluyordu. Terminatör (gece) katmanı 28.800 küçük şeffaf quad ile çiziliyordu. 2D'deki şeffaf poligonlarda `depthWriteEnabled`/`polygonOffset` yoktu → Z-fighting titreşimi.
+>
+> **Çözüm:**
+> - Animasyon değerleri React state yerine `useRef`'te tutuluyor; tek rAF döngüsü yalnızca `overlay.setProps` ile deck uniformlarını (currentTime, cursor) günceller — React re-render ve katman yeniden-inşası tetiklenmez. Veri referansları stabil tutulduğu için deck GPU buffer'ları yeniden yüklemez.
+> - Tüm şeffaf overlay/poligon/scatter katmanlarına `depthWriteEnabled:false` (+ poligonlarda `polygonOffset`) eklendi (AGENT.md Kural #3).
+> - Terminatör grid çözünürlüğü düşürüldü; kritik olarak katman artık per-frame değil yalnızca güneş güncellemesinde (60s) yeniden kurulur.
+> - `generateWindPaths` yoğunluk kaydırıcısında 120ms debounce ile ana thread kilidini önler.
+
+### 4. Dayanıklılık: WebGL Context-Loss + Visibility — ÇÖZÜLDÜ
+> [!NOTE]
+> **Eleştiri:** Dokümanların iddia ettiği `webglcontextlost`/`restored` state machine kodda hiç yoktu (grep = 0); bağlam kaybında siyah ekran kalıcı oluyordu. Sekme arka plana alınınca animasyon döngüsü askıya alınmıyordu.
+>
+> **Çözüm:** `EarthCanvas` içinde `webglcontextlost` (preventDefault) / `webglcontextrestored` dinleyicileri ve `ready` state machine eklendi. `visibilitychange` ile sekme gizlendiğinde rAF döngüsü durdurulup geri dönüşte `lastTime` sıfırlanarak yeniden başlatılır (delta patlaması önlenir).
+
+**Doğrulama:** `next build ✓` (TS/lint uyarısız). Headless Chromium smoke testi: tek canvas mount oldu, MapLibre+deck overlay JS hatasız başladı, UI kabuğu render oldu (harici tile'lar yalnızca sandbox ağ kısıtı nedeniyle yüklenmedi).
