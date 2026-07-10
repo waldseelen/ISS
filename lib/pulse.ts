@@ -9,12 +9,6 @@ export const CURSOR_PULSE_HZ = 0.5;
 export const CURSOR_PULSE_AMP = 8;
 export const CURSOR_PULSE_BASE = 18;
 
-/* ISS: medium pace (~0.85 Hz, period 1.18s) with a slightly different phase
-   so the two animations never peak together */
-export const ISS_PULSE_HZ = 0.85;
-export const ISS_PULSE_AMP = 12;
-export const ISS_PULSE_BASE = 30;
-
 export function pulseRadius(timeSec: number, hz: number, amp: number, base: number): number {
     return base + amp * Math.sin(timeSec * TWO_PI * hz);
 }

@@ -48,7 +48,6 @@ export default function Home() {
     }, []);
 
     const lastSelectedKeyRef = useRef<string | null>(null);
-    const lastRadarBeepRef = useRef<number>(0);
 
     useEffect(() => {
         if ('serviceWorker' in navigator) {

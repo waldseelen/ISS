@@ -18,9 +18,11 @@ const PERF_PARTICLES: ParticleSettings = {
     speedMultiplier: 0.8,
 };
 
-/* Faz 3 / Madde 1: Varsayılan katman render sırası (düşük index = altta render edilir) */
+/* Kanonik render sırası (düşük index = altta). Zoom Earth mantığı:
+   altlık → uydu reflektans → gece ışıkları → gündüz/gece gölgesi →
+   sıcaklık → yağış → bulut → (deck) rüzgar → deniz → imleç. */
 const DEFAULT_LAYER_ORDER: LayerOrderKey[] = [
-    'nasaGIBS', 'nightLights', 'temperature', 'precipitation', 'clouds', 'dayNight', 'wind', 'marine',
+    'nasaGIBS', 'nightLights', 'dayNight', 'temperature', 'precipitation', 'clouds', 'wind', 'marine',
 ];
 
 const DEFAULT_STATE: ModuleState = {

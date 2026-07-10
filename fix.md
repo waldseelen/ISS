@@ -357,3 +357,28 @@ Projedeki en köklü mimari sorun giderildi: iki ayrı tuval motorunun (deck.gl 
 > **Çözüm:** `EarthCanvas` içinde `webglcontextlost` (preventDefault) / `webglcontextrestored` dinleyicileri ve `ready` state machine eklendi. `visibilitychange` ile sekme gizlendiğinde rAF döngüsü durdurulup geri dönüşte `lastTime` sıfırlanarak yeniden başlatılır (delta patlaması önlenir).
 
 **Doğrulama:** `next build ✓` (TS/lint uyarısız). Headless Chromium smoke testi: tek canvas mount oldu, MapLibre+deck overlay JS hatasız başladı, UI kabuğu render oldu (harici tile'lar yalnızca sandbox ağ kısıtı nedeniyle yüklenmedi).
+
+---
+
+## ✅ Faz 13: Zoom Earth-grade Katman Compositing (Native Hibrit) — TAMAMLANDI
+
+Faz 12'de tüm overlay'ler deck.gl `TileLayer` idi; bu, altlık (MapLibre) ile overlay'ler (deck) arasında **iki ayrı reprojection hattı** oluşturuyordu (küre üzerinde ince hizalama/seam riski, Service Worker cache overlay'lerde tam çalışmıyor). Compositing tek motora indirildi.
+
+### 1. Raster overlay'ler + Gündüz/Gece → MapLibre NATIVE — ÇÖZÜLDÜ
+> [!IMPORTANT]
+> **Çözüm:** NASA GIBS, gece ışıkları, sıcaklık, yağış radarı ve bulut katmanları artık MapLibre **native raster** katmanları (`addSource`/`addLayer`, `raster-opacity`). Gündüz/gece terminatörü + alacakaranlık bandları tek **GeoJSON fill** kaynağına çevrildi (per-feature renk/opaklık, `fill-antialias:false`). Böylece altlıkla **aynı reprojection hattı** kullanılır → piksel-hizalı, seam'siz compositing; tile'lar Service Worker ile cache'lenir (offline geri döner).
+> - `EarthCanvas` içinde `syncNativeOverlays()` modül state ile native katmanları ekler/günceller/kaldırır ve `moveLayer` ile kanonik sıraya dizer.
+> - `setStyle` (altlık değişimi) sonrası `styleEpoch` sayacı overlay'leri otomatik yeniden kurar.
+
+### 2. deck.gl yalnızca parçacık + marker — ÇÖZÜLDÜ
+> [!NOTE]
+> **Çözüm:** deck.gl overlay yüzeyi minimuma indirildi: yalnızca animasyonlu rüzgar/yağış `TripsLayer`, deniz dalga `ScatterplotLayer` ve seçim imleci. Raster/poligon compositing tamamen MapLibre'e devredildiği için katmanların birbirini bozma yüzeyi neredeyse sıfır.
+
+### 3. Kanonik render sırası (Zoom Earth mantığı) — TANIMLANDI
+> [!TIP]
+> Alttan üste: altlık → NASA reflektans → gece ışıkları → gündüz/gece gölgesi → sıcaklık → yağış radarı → bulut → (deck) rüzgar/yağış parçacıkları → deniz → seçim imleci. `DEFAULT_LAYER_ORDER` bu sıraya güncellendi; `LayerOrderPanel` ileri-seviye ayar olarak kalır.
+
+**Doğrulama:** `next build ✓`. Headless Chromium (mock tile + rüzgar API) testi: küre projeksiyonu render oldu, rüzgar+yağış+gündüz/gece+NASA+gece ışıkları+deniz AYNI ANDA açıkken **0 JS hatası, 0 deck/WebGL uyarısı**; parçacıklar globe üzerinde doğru compose oldu (ekran görüntüsüyle teyit).
+
+### Ölü kod temizliği
+`lib/pulse.ts` ISS_PULSE_*, `lib/map.ts` getOrGenerateWindPaths, `lib/api.ts` API_MANIFEST + checkApiHealth, `app/page.tsx` lastRadarBeepRef, `SkeletonLoader` iss variant, `canvasStyle` baseStyleKey ve `lib/tiles.ts` ölü altlık girişleri kaldırıldı (kaldırılan ISS alt sisteminden arta kalanlar).

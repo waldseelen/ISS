@@ -4,8 +4,8 @@
    ═══════════════════════════════════════════════════════════════ */
 
 interface SkeletonProps {
-    /** Variant: 'weather' | 'iss' | 'detail' | 'line' */
-    variant?: 'weather' | 'iss' | 'detail' | 'line';
+    /** Variant: 'weather' | 'detail' | 'line' */
+    variant?: 'weather' | 'detail' | 'line';
     /** Number of skeleton rows for 'line' variant */
     rows?: number;
 }
@@ -35,24 +35,6 @@ function WeatherSkeleton() {
             <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                 {Array.from({ length: 6 }).map((_, i) => (
                     <Bone key={i} className="h-3" width={i % 2 === 0 ? '55%' : '35%'} />
-                ))}
-            </div>
-        </div>
-    );
-}
-
-/** Skeleton for ISSPanel loading state */
-function ISSSkeleton() {
-    return (
-        <div className="glass rounded-xl p-4 space-y-3">
-            <div className="flex items-center gap-2 border-b border-cyan-900/50 pb-2">
-                <Bone className="w-6 h-6 rounded-full shrink-0" />
-                <Bone className="h-4" width="50%" />
-                <div className="ml-auto"><Bone className="h-3 w-12" /></div>
-            </div>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                {Array.from({ length: 8 }).map((_, i) => (
-                    <Bone key={i} className="h-3" width={i % 2 === 0 ? '50%' : '40%'} />
                 ))}
             </div>
         </div>
@@ -118,7 +100,6 @@ function LineSkeleton({ rows = 4 }: { rows?: number }) {
 export default function SkeletonLoader({ variant = 'weather', rows = 4 }: SkeletonProps) {
     switch (variant) {
         case 'weather': return <WeatherSkeleton />;
-        case 'iss':     return <ISSSkeleton />;
         case 'detail':  return <DetailSkeleton />;
         case 'line':    return <LineSkeleton rows={rows} />;
         default:        return <WeatherSkeleton />;

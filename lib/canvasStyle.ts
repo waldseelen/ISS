@@ -83,9 +83,3 @@ export function buildBaseStyle(baseStyle: BaseStyle): StyleSpecification {
         ],
     };
 }
-
-/* Aynı altlık için gereksiz setStyle reload'unu engellemek üzere
-   basit bir kimlik anahtarı. */
-export function baseStyleKey(baseStyle: BaseStyle): string {
-    return baseStyle;
-}

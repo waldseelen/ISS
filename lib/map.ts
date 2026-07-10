@@ -100,21 +100,3 @@ export function getWindColor(speed: number): [number, number, number] {
     if (speed < 65) return [249, 115, 22]; // Vivid orange
     return [239, 68, 68]; // Crimson red (storm)
 }
-
-/* Shared between wind + rain so we don't trace two particle systems
-   (critique #30). Returns the same paths; callers can shift the color
-   and timestamp offset. */
-export function getOrGenerateWindPaths(
-    wind: WindPoint[],
-    windEnabled: boolean,
-    rainEnabled: boolean,
-    cached: WindTrajectory[],
-    setCached: (next: WindTrajectory[]) => void,
-) {
-    if (!windEnabled && !rainEnabled) return { paths: [] as WindTrajectory[], cacheHit: true };
-    if (wind.length === 0) return { paths: [] as WindTrajectory[], cacheHit: true };
-    if (cached.length > 0) return { paths: cached, cacheHit: true };
-    const paths = generateWindPaths(wind, 1800, 12);
-    setCached(paths);
-    return { paths, cacheHit: false };
-}
