@@ -27,58 +27,6 @@ export async function fetchWeather(lat: number, lon: number): Promise<WeatherDat
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   API HEALTH CHECK MANIFEST & RATE LIMITS
-   ═══════════════════════════════════════════════════════════════ */
-export const API_MANIFEST = {
-    openMeteo: {
-        name: 'Open-Meteo',
-        baseUrl: 'https://api.open-meteo.com',
-        rateLimit: '10000 req/day',
-        endpoints: ['/v1/forecast', '/v1/elevation']
-    },
-    openMeteoMarine: {
-        name: 'Open-Meteo Marine',
-        baseUrl: 'https://marine-api.open-meteo.com',
-        rateLimit: '10000 req/day',
-        endpoints: ['/v1/marine']
-    },
-    openMeteoGeocoding: {
-        name: 'Open-Meteo Geocoding',
-        baseUrl: 'https://geocoding-api.open-meteo.com',
-        rateLimit: '10000 req/day',
-        endpoints: ['/v1/search']
-    },
-    openMeteoArchive: {
-        name: 'Open-Meteo Archive',
-        baseUrl: 'https://archive-api.open-meteo.com',
-        rateLimit: '10000 req/day',
-        endpoints: ['/v1/archive']
-    },
-    nasaGIBS: {
-        name: 'NASA GIBS',
-        baseUrl: 'https://gibs.earthdata.nasa.gov',
-        rateLimit: 'Fair use, no strict limit',
-        endpoints: ['/wmts/epsg3857/best/*']
-    },
-    rainViewer: {
-        name: 'RainViewer',
-        baseUrl: 'https://api.rainviewer.com',
-        rateLimit: 'Fair use',
-        endpoints: ['/public/weather-maps.json']
-    }
-};
-
-export async function checkApiHealth() {
-    const status: Record<string, boolean> = {};
-    try {
-        const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=0&longitude=0&current=temperature_2m', { method: 'HEAD' });
-        status.openMeteo = res.ok;
-    } catch { status.openMeteo = false; }
-    return status;
-}
-
-
-/* ═══════════════════════════════════════════════════════════════
    LOCALIZATION & TRANSLATIONS
    ═══════════════════════════════════════════════════════════════ */
 export const TRANSLATIONS = {

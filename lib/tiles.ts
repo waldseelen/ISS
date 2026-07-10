@@ -9,13 +9,9 @@ export function yesterdayISO(): string {
 }
 
 export const TILES = {
-    /* ── Base layers (used by GlobeCanvas — MapCanvas uses MapLibre styles) ── */
-    esriSatellite:
-        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    osm:
-        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-    openTopo:
-        'https://tile.opentopomap.org/{z}/{x}/{y}.png',
+    /* Altlık haritalar (satellite/street/topo) lib/canvasStyle.ts içinde
+       MapLibre raster kaynağı olarak tanımlanır. Buradaki girişler yalnızca
+       deck.gl overlay olarak eklenen meteoroloji/NASA katmanlarıdır. */
 
     /* ── NASA GIBS (free, no key) ── */
     nasaGIBS: (date?: string) =>

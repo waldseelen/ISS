@@ -74,7 +74,7 @@ function getSunAltitude(latDeg: number, lonDeg: number, subSolarLatDeg: number, 
 }
 
 function buildSunGrid(subSolarLat: number, subSolarLon: number): { terminator: TerminatorPolygon; twilightBands: TwilightBand[] } {
-    const step = 1.5; // High resolution 1.5 degree grid
+    const step = 2; // Grid çözünürlüğü (düşük = daha yumuşak ama daha ağır)
     const terminatorRings: [number, number, number][][] = [];
     const civilRings: [number, number, number][][] = [];
     const nauticalRings: [number, number, number][][] = [];

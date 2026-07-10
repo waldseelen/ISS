@@ -2,7 +2,6 @@
 
 import { useModules } from '@/hooks/useModules';
 import { useSun } from '@/hooks/useSun';
-import { AUTO_SWITCH_GLOBE_MIN_ZOOM, AUTO_SWITCH_MAP_MAX_ZOOM } from '@/lib/canvasStyle';
 import { fetchMarine, fetchWeather, fetchWindGrid } from '@/lib/api';
 import { fetchLocationDetail } from '@/lib/geo';
 import type { GeoCity, MarineData, WeatherData, WindPoint } from '@/types';
@@ -21,8 +20,7 @@ import SkeletonLoader from '@/components/ui/SkeletonLoader';
 import ParticleSettingsPanel from '@/components/ui/ParticleSettingsPanel';
 import LayerOrderPanel from '@/components/ui/LayerOrderPanel';
 
-const GlobeCanvas = dynamic(() => import('@/components/globe/GlobeCanvas'), { ssr: false });
-const MapCanvas = dynamic(() => import('@/components/map/MapCanvas'), { ssr: false });
+const EarthCanvas = dynamic(() => import('@/components/earth/EarthCanvas'), { ssr: false });
 const LazyLocationDetailPanel = dynamic(() => import('@/components/panels/LocationDetailPanel'), { ssr: false });
 const LazyWeatherPanel = dynamic(() => import('@/components/panels/WeatherPanel'), { ssr: false });
 const LazyBookmarksPanel = dynamic(() => import('@/components/panels/BookmarksPanel'), { ssr: false });
@@ -49,12 +47,7 @@ export default function Home() {
         setBookmarksRefreshTrigger(prev => prev + 1);
     }, []);
 
-    const isGlobe = modules.globe3D;
-    const [transitioning, setTransitioning] = useState(false);
-    const prevModeRef = useRef(isGlobe);
-    const autoSwitchLockRef = useRef(0);
     const lastSelectedKeyRef = useRef<string | null>(null);
-    const lastRadarBeepRef = useRef<number>(0);
 
     useEffect(() => {
         if ('serviceWorker' in navigator) {
@@ -142,22 +135,9 @@ export default function Home() {
         }
     }, [loadLocationData, addToast]);
 
-    const handleCameraChange = useCallback((zoom: number) => {
-        // Auto-switch disabled. Mod geçişleri sadece Toolbar üzerinden manuel olarak yapılacaktır.
-    }, []);
-
-    const handleMapZoomChange = useCallback((zoom: number) => {
-        // Auto-switch disabled. Mod geçişleri sadece Toolbar üzerinden manuel olarak yapılacaktır.
-    }, []);
-
-    useEffect(() => {
-        if (prevModeRef.current !== isGlobe) {
-            setTransitioning(true);
-            const t = setTimeout(() => setTransitioning(false), 600);
-            prevModeRef.current = isGlobe;
-            return () => clearTimeout(t);
-        }
-    }, [isGlobe]);
+    // Birleşik motorda 2D↔3D geçişi projeksiyonla kesintisiz yapılır;
+    // zoom değişimi artık mod geçişini tetiklemez.
+    const handleZoomChange = useCallback((_zoom: number) => {}, []);
 
     useEffect(() => {
         if (flyTarget) {
@@ -173,39 +153,21 @@ export default function Home() {
                 <p className="mt-4 text-cyan-400 text-xs font-mono tracking-widest animate-pulse">EARTH TRACKER</p>
             </div>
 
-            <div className={`absolute inset-0 w-full h-full canvas-container ${transitioning ? 'canvas-transitioning' : ''}`} style={{ willChange: 'transform, opacity' }}>
-                {isGlobe && (
-                    <ErrorBoundary>
-                        <GlobeCanvas
-                            wind={wind}
-                            marine={marine}
-                            modules={modules}
-                            baseStyle={baseStyle}
-                            terminator={terminator}
-                            twilightBands={twilightBands}
-                            flyTarget={flyTarget}
-                            selectedCoord={selectedCoord}
-                            onCameraChange={handleCameraChange}
-                            onGlobeClick={handleLocationSelect}
-                        />
-                    </ErrorBoundary>
-                )}
-                {!isGlobe && (
-                    <ErrorBoundary>
-                        <MapCanvas
-                            modules={modules}
-                            flyTarget={flyTarget}
-                            wind={wind}
-                            marine={marine}
-                            selectedCoord={selectedCoord}
-                            baseStyle={baseStyle}
-                            terminator={terminator}
-                            twilightBands={twilightBands}
-                            onZoomChange={handleMapZoomChange}
-                            onMapClick={handleLocationSelect}
-                        />
-                    </ErrorBoundary>
-                )}
+            <div className="absolute inset-0 w-full h-full canvas-container">
+                <ErrorBoundary>
+                    <EarthCanvas
+                        modules={modules}
+                        baseStyle={baseStyle}
+                        wind={wind}
+                        marine={marine}
+                        terminator={terminator}
+                        twilightBands={twilightBands}
+                        flyTarget={flyTarget}
+                        selectedCoord={selectedCoord}
+                        onZoomChange={handleZoomChange}
+                        onMapClick={handleLocationSelect}
+                    />
+                </ErrorBoundary>
             </div>
 
             <header className="fixed top-4 left-4 right-4 z-50 flex items-center gap-3">
