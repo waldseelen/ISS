@@ -92,10 +92,10 @@ npx vercel --prod
 ---
 
 ## 🛠️ Teknik Altyapı
-* **Framework:** Next.js 16.2 (App Router) & React 19
-* **Dinamik 3D Render:** Deck.gl 9 (GlobeView, TripsLayer, ScatterplotLayer) & Three.js 0.183
-* **2D Harita Altlığı:** MapLibre GL 5 (CartoDB Dark Matter)
-* **Hesaplama Motoru:** SGP4 Orbit Mechanics & SunCalc
+* **Framework:** Next.js 16.1 (App Router) & React 19
+* **Dinamik Render:** Deck.gl 9 (MapboxOverlay, TripsLayer, ScatterplotLayer)
+* **2D/3D Harita Altlığı:** MapLibre GL 5 (küre/mercator projeksiyon)
+* **Hesaplama Motoru:** SunCalc (astronomik hesaplamalar)
 * **Veri API'leri:** Open-Meteo (Hava, Deniz, Arazi, Arşiv, Geocoding), wheretheiss.at, NASA GIBS, RainViewer
 
 ---
