@@ -1,6 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 :root {
     --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
@@ -250,11 +248,6 @@ body {
     will-change: transform, opacity;
     transform: scale(1.0);
     opacity: 1;
-}
-
-.canvas-transitioning {
-    transform: scale(0.95);
-    opacity: 0;
 }
 
 /* ─── Spring-Like HUD Panel Easing (Stagger cubic-bezier) (Critique #5) ─── */

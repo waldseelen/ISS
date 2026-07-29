@@ -1,6 +1,6 @@
 'use client';
 
-import type { BaseStyle, LayerOrderKey, ModuleState, ParticleSettings, TileGroup } from '@/types';
+import type { BaseStyle, LayerOrderKey, MapProjection, ModuleState, ParticleSettings, TileGroup } from '@/types';
 import { useCallback, useState } from 'react';
 
 /* Faz 2 / Madde 2+3: Varsayılan parçacık ayarları */
@@ -26,8 +26,7 @@ const DEFAULT_LAYER_ORDER: LayerOrderKey[] = [
 ];
 
 const DEFAULT_STATE: ModuleState = {
-    globe3D: false,
-    map2D: true,
+    projection: 'mercator',
     satellite: true,
     street: false,
     topo: false,
@@ -41,12 +40,13 @@ const DEFAULT_STATE: ModuleState = {
     marine: false,
     clouds: false,
     performanceMode: false,
+    iss: false,
+    issStream: false,
     tileGroup: 'none',
     particleSettings: DEFAULT_PARTICLES,
     layerOrder: DEFAULT_LAYER_ORDER,
 };
 
-const VIEW_MODES = ['globe3D', 'map2D'] as const;
 const BASE_STYLE_KEYS: BaseStyle[] = ['satellite', 'street', 'topo'];
 const TILE_TOGGLE_KEYS = ['precipitation', 'temperature', 'clouds'] as const;
 type TileToggleKey = typeof TILE_TOGGLE_KEYS[number];
@@ -68,11 +68,6 @@ export function useModules() {
     const toggle = useCallback((key: keyof ModuleState) => {
         setModules(prev => {
             const next = { ...prev };
-
-            if (VIEW_MODES.includes(key as typeof VIEW_MODES[number])) {
-                for (const m of VIEW_MODES) next[m] = m === key;
-                return next;
-            }
 
             if (BASE_STYLE_KEYS.includes(key as BaseStyle)) {
                 for (const k of BASE_STYLE_KEYS) next[k] = k === key;
@@ -102,6 +97,11 @@ export function useModules() {
         });
     }, []);
 
+    /* Projeksiyon (küre / düz) — tek alan, karşılıklı dışlayan boolean çifti değil */
+    const setProjection = useCallback((projection: MapProjection) => {
+        setModules(prev => (prev.projection === projection ? prev : { ...prev, projection }));
+    }, []);
+
     const updateParticleSettings = useCallback((update: Partial<ParticleSettings>) => {
         setModules(prev => ({
             ...prev,
@@ -122,6 +122,7 @@ export function useModules() {
     return {
         modules,
         toggle,
+        setProjection,
         updateParticleSettings,
         reorderLayers,
         baseStyle: baseStyleOf(modules),

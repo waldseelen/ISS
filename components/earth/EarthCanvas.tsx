@@ -5,11 +5,11 @@ import { buildBaseStyle } from '@/lib/canvasStyle';
 import { CURSOR_PULSE_AMP, CURSOR_PULSE_BASE, CURSOR_PULSE_HZ, clampFrameDelta, pulseRadius } from '@/lib/pulse';
 import { getRainViewerTimestamp, TILES, yesterdayISO } from '@/lib/tiles';
 import type { TwilightBand } from '@/hooks/useSun';
-import type { BaseStyle, LayerOrderKey, MarineData, ModuleState, TerminatorPolygon, WindPoint } from '@/types';
+import type { BaseStyle, ISSPosition, LayerOrderKey, MarineData, ModuleState, TerminatorPolygon, WindPoint } from '@/types';
 import { MapboxOverlay } from '@deck.gl/mapbox';
 import { TripsLayer } from '@deck.gl/geo-layers';
 import { ScatterplotLayer } from '@deck.gl/layers';
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 interface Props {
@@ -17,11 +17,11 @@ interface Props {
     baseStyle: BaseStyle;
     wind?: WindPoint[];
     marine?: MarineData | null;
+    iss?: ISSPosition | null;
     terminator: TerminatorPolygon;
     twilightBands?: TwilightBand[];
     flyTarget: { lat: number; lon: number } | null;
     selectedCoord: { lat: number; lon: number } | null;
-    onZoomChange?: (zoom: number) => void;
     onMapClick?: (lat: number, lon: number) => void;
 }
 
@@ -45,6 +45,24 @@ const RASTER_LAYER_ID: Partial<Record<LayerOrderKey, string>> = {
 };
 const DAYNIGHT_LAYER_ID = 'ov-daynight';
 const DAYNIGHT_SRC_ID = 'ov-daynight-src';
+
+/* deck.gl ile çizilen (native olmayan) sıralanabilir katmanlar */
+type DeckOrderKey = 'precipitation' | 'wind' | 'marine';
+const DECK_ORDER_KEYS: DeckOrderKey[] = ['precipitation', 'wind', 'marine'];
+
+/* Bir deck katmanının hangi native katmanın ALTINA gireceğini bulur:
+   layerOrder'da bu anahtardan sonra gelen ilk mevcut native katman.
+   undefined → üstünde native katman yok, en üstte kalır (eski davranış). */
+function nextNativeLayerId(key: LayerOrderKey, order: LayerOrderKey[], map: maplibregl.Map): string | undefined {
+    const start = order.indexOf(key);
+    if (start < 0) return undefined;
+    for (let i = start + 1; i < order.length; i++) {
+        const k = order[i];
+        const id = k === 'dayNight' ? DAYNIGHT_LAYER_ID : RASTER_LAYER_ID[k];
+        if (id && map.getLayer(id)) return id;
+    }
+    return undefined;
+}
 
 function rasterSpecFor(
     key: LayerOrderKey,
@@ -95,11 +113,11 @@ export default function EarthCanvas({
     baseStyle,
     wind = [],
     marine,
+    iss,
     terminator,
     twilightBands = [],
     flyTarget,
     selectedCoord,
-    onZoomChange,
     onMapClick,
 }: Props) {
     const containerRef = useRef<HTMLDivElement>(null);
@@ -113,6 +131,10 @@ export default function EarthCanvas({
 
     const [windPaths, setWindPaths] = useState<WindTrajectory[]>([]);
     const [rainTimestamp, setRainTimestamp] = useState<number | null>(null);
+    /* deck katmanlarının native yığındaki yeri (beforeId). Yalnızca
+       syncNativeOverlays içinde hesaplanır — per-frame DEĞİL: değişen bir
+       beforeId gerçek bir MapLibre katman remove/add'i tetikler. */
+    const [deckBeforeIds, setDeckBeforeIds] = useState<Partial<Record<DeckOrderKey, string>>>({});
 
     /* Faz 2: Animasyon değerleri ref'te — per-frame React re-render yok */
     const animRef = useRef({ tripTime: 0, cursorPhase: 0, cursorFade: 0 });
@@ -148,7 +170,7 @@ export default function EarthCanvas({
 
         if (modules.tileGroup === 'precipitation' && windPaths.length > 0) {
             byKey.precipitation.push(new TripsLayer({
-                id: 'rain-trips', data: windPaths,
+                id: 'rain-trips', data: windPaths, beforeId: deckBeforeIds.precipitation,
                 getPath: (d: any) => d.path,
                 getTimestamps: (d: any) => d.timestamps.map((t: number) => t + 1.2),
                 getColor: [0, 229, 255], opacity: 0.7,
@@ -159,7 +181,7 @@ export default function EarthCanvas({
         }
         if (modules.wind && windPaths.length > 0) {
             byKey.wind.push(new TripsLayer({
-                id: 'wind-trips', data: windPaths,
+                id: 'wind-trips', data: windPaths, beforeId: deckBeforeIds.wind,
                 getPath: (d: any) => d.path,
                 getTimestamps: (d: any) => d.timestamps,
                 getColor: (d: any) => getWindColor(d.speed), opacity: 0.85,
@@ -170,7 +192,7 @@ export default function EarthCanvas({
         }
         if (modules.marine && marine) {
             byKey.marine.push(new ScatterplotLayer({
-                id: 'marine-wave-point', data: [marine],
+                id: 'marine-wave-point', data: [marine], beforeId: deckBeforeIds.marine,
                 getPosition: (d: MarineData) => [d.longitude, d.latitude],
                 radiusUnits: 'pixels', getRadius: 18 + (marine.waveHeight ?? 0) * 6,
                 getFillColor: (() => {
@@ -191,6 +213,20 @@ export default function EarthCanvas({
             else if (key === 'wind') sorted.push(...byKey.wind);
             else if (key === 'marine') sorted.push(...byKey.marine);
         });
+
+        /* ISS işaretçisi — imleç gibi her zaman en üstte (beforeId yok),
+           tek nokta olduğu için layerOrder'a dahil edilmez. */
+        if (modules.iss && iss) {
+            sorted.push(new ScatterplotLayer({
+                id: 'iss-marker', data: [iss],
+                getPosition: (d: ISSPosition) => [d.longitude, d.latitude],
+                radiusUnits: 'pixels', getRadius: 7,
+                getFillColor: [255, 214, 10, 230],
+                stroked: true, getLineColor: [255, 255, 255, 210], lineWidthMinPixels: 2,
+                updateTriggers: { getPosition: [iss.latitude, iss.longitude] },
+                parameters: { depthWriteEnabled: false } as any,
+            }));
+        }
 
         const showCursor = cursorFade > 0.001;
         if (showCursor && selectedCoord) {
@@ -215,7 +251,7 @@ export default function EarthCanvas({
             );
         }
         return sorted;
-    }, [modules.tileGroup, modules.wind, modules.marine, modules.layerOrder, windPaths, marine, selectedCoord, ps.width, ps.trailLength]);
+    }, [modules.tileGroup, modules.wind, modules.marine, modules.iss, modules.layerOrder, windPaths, marine, iss, selectedCoord, ps.width, ps.trailLength, deckBeforeIds]);
 
     /* ── MapLibre native raster + gündüz/gece katmanlarını modül state ile senkronla ── */
     const syncNativeOverlays = useCallback(() => {
@@ -268,14 +304,35 @@ export default function EarthCanvas({
             if (map.getSource(DAYNIGHT_SRC_ID)) map.removeSource(DAYNIGHT_SRC_ID);
         }
 
-        // 3) Kanonik sıraya göre diz (layerOrder). Her katmanı sırayla üste taşı →
-        //    son taşınan en üstte; altlık en altta kalır. deck overlay hepsinin üstünde.
+        /* 3) Native katmanları kanonik sıraya diz (layerOrder). `moveLayer(id)`
+           katmanı en üste taşır; sırayla çağrıldığında son taşınan en üstte kalır.
+
+           Deck katmanları bu geçişe dahil EDİLMEZ ve edilmesine gerek yoktur:
+           deck.gl interleaved modda katmanları kendi id'leriyle değil, beforeId'ye
+           göre gruplayarak `deck-layer-group-before:<beforeId>` adıyla ekler ve
+           her `setProps` çağrısında grubun konumunu hedef katmanın hemen altına
+           geri taşır (`resolveLayerGroups` → `map.moveLayer(groupId, beforeId)`).
+           rAF döngüsü her karede `setProps` çağırdığı için, bu moveLayer geçişi
+           native'leri üste taşısa bile deck grupları bir sonraki karede kendi
+           yerine döner. beforeId'siz katmanlar (ISS işaretçisi, seçim imleci)
+           `deck-layer-group-last` grubuna girer ve her zaman en üstte kalır. */
         modules.layerOrder.forEach(key => {
             const layerId = key === 'dayNight' ? DAYNIGHT_LAYER_ID : RASTER_LAYER_ID[key];
             if (layerId && map.getLayer(layerId)) {
                 try { map.moveLayer(layerId); } catch { /* yoksay */ }
             }
         });
+
+        /* 4) deck katmanları için beforeId eşlemesi — native/deck sınırında da
+           layerOrder'a uyulmasını sağlar. Native katmanların son hali burada
+           kesinleştiği için tek doğru yer burası. Değer değişmediyse aynı
+           nesneyi döndür → gereksiz re-render ve katman yeniden kurulumu yok. */
+        const nextIds: Partial<Record<DeckOrderKey, string>> = {};
+        DECK_ORDER_KEYS.forEach(k => {
+            const id = nextNativeLayerId(k, modules.layerOrder, map);
+            if (id) nextIds[k] = id;
+        });
+        setDeckBeforeIds(prev => (DECK_ORDER_KEYS.every(k => prev[k] === nextIds[k]) ? prev : nextIds));
     }, [modules, yesterdayStr, rainTimestamp, terminator, twilightBands]);
 
     useEffect(() => {
@@ -293,7 +350,7 @@ export default function EarthCanvas({
             attributionControl: false, dragRotate: false, touchZoomRotate: true, touchPitch: false,
         });
         map.on('style.load', () => {
-            try { map.setProjection({ type: modules.globe3D ? 'globe' : 'mercator' } as any); } catch {}
+            try { map.setProjection({ type: modules.projection } as any); } catch {}
             rasterUrlRef.current = {};
             setStyleEpoch(e => e + 1);
         });
@@ -304,7 +361,6 @@ export default function EarthCanvas({
         overlayRef.current = overlay;
 
         map.on('load', () => setReady(true));
-        map.on('zoomend', () => onZoomChange?.(map.getZoom()));
         map.on('click', (e) => { const { lat, lng } = e.lngLat; onMapClick?.(lat, lng); });
 
         /* Faz 4: WebGL bağlam kaybı kurtarma */
@@ -314,7 +370,7 @@ export default function EarthCanvas({
         canvas.addEventListener('webglcontextlost', onLost as any, false);
         canvas.addEventListener('webglcontextrestored', onRestored as any, false);
         (map as any).__ctxHandlers = { canvas, onLost, onRestored };
-    }, [baseStyle, modules.globe3D, onZoomChange, onMapClick]);
+    }, [baseStyle, modules.projection, onMapClick]);
 
     const destroyMap = useCallback(() => {
         const map = mapRef.current;
@@ -353,8 +409,8 @@ export default function EarthCanvas({
     // Projeksiyon (küre / düz) değişimi — kesintisiz geçiş
     useEffect(() => {
         if (!mapRef.current || !ready) return;
-        try { mapRef.current.setProjection({ type: modules.globe3D ? 'globe' : 'mercator' } as any); } catch {}
-    }, [modules.globe3D, ready]);
+        try { mapRef.current.setProjection({ type: modules.projection } as any); } catch {}
+    }, [modules.projection, ready]);
 
     // Konuma uçuş
     useEffect(() => {

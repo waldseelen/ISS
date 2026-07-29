@@ -1,5 +1,6 @@
 'use client';
 
+import { useISS } from '@/hooks/useISS';
 import { useModules } from '@/hooks/useModules';
 import { useSun } from '@/hooks/useSun';
 import { fetchMarine, fetchWeather, fetchWindGrid } from '@/lib/api';
@@ -24,11 +25,16 @@ const EarthCanvas = dynamic(() => import('@/components/earth/EarthCanvas'), { ss
 const LazyLocationDetailPanel = dynamic(() => import('@/components/panels/LocationDetailPanel'), { ssr: false });
 const LazyWeatherPanel = dynamic(() => import('@/components/panels/WeatherPanel'), { ssr: false });
 const LazyBookmarksPanel = dynamic(() => import('@/components/panels/BookmarksPanel'), { ssr: false });
+const LazyISSPanel = dynamic(() => import('@/components/panels/ISSPanel'), { ssr: false });
+const LazyPassPredictorPanel = dynamic(() => import('@/components/panels/PassPredictorPanel'), { ssr: false });
+const LazyLiveStreamPanel = dynamic(() => import('@/components/panels/LiveStreamPanel'), { ssr: false });
 
 
 export default function Home() {
-    const { modules, toggle, updateParticleSettings, reorderLayers, baseStyle } = useModules();
+    const { modules, toggle, setProjection, updateParticleSettings, reorderLayers, baseStyle } = useModules();
     const { terminator, twilightBands } = useSun();
+    /* ISS yalnızca ilgili panel/işaretçi açıkken TLE çeker ve propagasyon yapar */
+    const iss = useISS(modules.iss);
     const { addToast } = useToast();
 
     const [weather, setWeather] = useState<WeatherData | null>(null);
@@ -135,10 +141,6 @@ export default function Home() {
         }
     }, [loadLocationData, addToast]);
 
-    // Birleşik motorda 2D↔3D geçişi projeksiyonla kesintisiz yapılır;
-    // zoom değişimi artık mod geçişini tetiklemez.
-    const handleZoomChange = useCallback((_zoom: number) => {}, []);
-
     useEffect(() => {
         if (flyTarget) {
             const timer = setTimeout(() => setFlyTarget(null), 1600);
@@ -160,11 +162,11 @@ export default function Home() {
                         baseStyle={baseStyle}
                         wind={wind}
                         marine={marine}
+                        iss={iss.position}
                         terminator={terminator}
                         twilightBands={twilightBands}
                         flyTarget={flyTarget}
                         selectedCoord={selectedCoord}
-                        onZoomChange={handleZoomChange}
                         onMapClick={handleLocationSelect}
                     />
                 </ErrorBoundary>
@@ -177,9 +179,24 @@ export default function Home() {
                 <SearchBar onSelect={handleCitySelect} />
             </header>
 
-            <Toolbar modules={modules} onToggle={toggle} />
+            <Toolbar modules={modules} onToggle={toggle} onSetProjection={setProjection} />
 
             <div className="fixed top-16 right-2 sm:right-4 z-40 w-[320px] sm:w-[380px] max-w-[calc(100vw-1rem)] max-h-[calc(100vh-6rem)] overflow-y-auto flex flex-col gap-3 panel-stagger-once scrollbar-thin">
+                {/* ISS: telemetri + geçiş tahmini tek toggle altında */}
+                {modules.iss && (
+                    <>
+                        <LazyISSPanel
+                            position={iss.position}
+                            tleAgeHours={iss.tleAgeHours}
+                            isStale={iss.isStale}
+                            isLoading={iss.isLoading}
+                            error={iss.error}
+                        />
+                        <LazyPassPredictorPanel satrec={iss.satrec} observer={selectedCoord} />
+                    </>
+                )}
+                {/* Canlı yayın ayrı toggle — ağır iframe isteğe bağlı */}
+                {modules.issStream && <LazyLiveStreamPanel />}
                 {modules.weather && (
                     isFetchingData && !weather && !selectedLocation ? (
                         <SkeletonLoader variant={selectedCoord ? 'detail' : 'weather'} />

@@ -25,7 +25,7 @@
 * **Anlık Telemetri:** Uluslararası Uzay İstasyonu'nun (ISS) anlık enlem, boylam, hız (km/h) ve yükseklik (km) verilerini saniyelik güncellemelerle takip edin.
 * **NASA Canlı Yayını:** ISS kameralarından doğrudan dünyaya aktarılan canlı HD video yayınını panel içerisinden izleyin.
 * **Görünürlük Hesaplayıcı (Pass Predictor):** SGP4 yörünge mekaniği çözücüsü sayesinde, seçtiğiniz herhangi bir konum üzerinde önümüzdeki 24 saat içinde gerçekleşecek ufkunuza açık (Elevation > 10°) geçişlerin saatlerini, zirve açılarını ve yönlerini önceden hesaplayın.
-* **Astronomik Zamanlar:** Seçtiğiniz koordinatın veya ISS'in güncel boylamına göre anlık güneş açısını temsil eden **Yerel Ortalama Güneş Saatini (LMST)** izleyin.
+* **Yörünge verisi:** TLE (yörünge elemanları) CelesTrak'tan anahtarsız çekilir ve tarayıcıda 12 saat önbelleklenir; konum güncellemeleri tamamen yerel SGP4 propagasyonuyla yapılır, saniyelik ağ isteği yoktur. Veri bayatlarsa panel uyarı gösterir.
 
 ### 🗻 2. Topografik Arazi Kesit Analizi
 * Harita üzerinde tıkladığınız herhangi bir noktanın çevresindeki arazi yapısını inceleyin.
@@ -59,7 +59,7 @@
 
 Uygulama, etkileşim hissini artırmak amacıyla Web Audio API tabanlı siber-akustik sentez sesler barındırır:
 * 🗺️ Haritada arama başarılı olduğunda veya yer imlerine uçuş başladığında onay sinyali (`playBeep('search')`).
-* 🛰️ ISS, seçtiğiniz konuma **1000 km veya daha yakın** bir mesafeye girdiğinde 12 saniyede bir çalan radar arama telemetrisi beep tonları (`playBeep('radar')`).
+* 🖱️ Harita üzerinde bir konum seçildiğinde tıklama geri bildirimi (`playBeep('click')`).
 
 ---
 
@@ -96,7 +96,8 @@ npx vercel --prod
 * **Dinamik Render:** Deck.gl 9 (MapboxOverlay, TripsLayer, ScatterplotLayer)
 * **2D/3D Harita Altlığı:** MapLibre GL 5 (küre/mercator projeksiyon)
 * **Hesaplama Motoru:** SunCalc (astronomik hesaplamalar)
-* **Veri API'leri:** Open-Meteo (Hava, Deniz, Arazi, Arşiv, Geocoding), wheretheiss.at, NASA GIBS, RainViewer
+* **Veri API'leri:** Open-Meteo (Hava, Deniz, Arazi, Arşiv, Geocoding), CelesTrak (ISS TLE), NASA GIBS, RainViewer
+* **Yörünge mekaniği:** `satellite.js` 6.x (MIT) — referans Vallado/Hoots SGP4 portu, saf hesaplama (ağ/hesap gerektirmez)
 
 ---
 

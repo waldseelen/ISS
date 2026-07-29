@@ -2,6 +2,9 @@
 
 export type BaseStyle = 'satellite' | 'street' | 'topo';
 export type TileGroup = 'none' | 'precipitation' | 'temperature' | 'clouds' | 'wind';
+/* Tek MapLibre projeksiyon anahtarı — 2D/3D ayrı boolean'lar yerine
+   doğrudan map.setProjection({ type }) sözlüğüyle aynı dili konuşur. */
+export type MapProjection = 'globe' | 'mercator';
 
 /* Faz 2 / Madde 2+3: Parçacık vektör alanı ayarları */
 export interface ParticleSettings {
@@ -12,8 +15,7 @@ export interface ParticleSettings {
 }
 
 export interface ModuleState {
-    globe3D: boolean;
-    map2D: boolean;
+    projection: MapProjection;
     satellite: boolean;
     street: boolean;
     topo: boolean;
@@ -27,6 +29,10 @@ export interface ModuleState {
     marine: boolean;
     clouds: boolean;
     performanceMode: boolean;
+    /* ISS telemetri + geçiş tahmini panelleri (tek mantıksal birim) */
+    iss: boolean;
+    /* NASA canlı yayın gömmesi — ayrı toggle, ağır iframe isteğe bağlı yüklensin */
+    issStream: boolean;
     tileGroup: TileGroup;
     particleSettings: ParticleSettings;
     /* Faz 3 / Madde 1: Katman render sırası (düşük index = altta) */
@@ -43,6 +49,22 @@ export interface ModuleGroups {
 
 export interface TerminatorPolygon {
     rings: [number, number, number?][][];
+}
+
+/* ─── ISS (SGP4 tabanlı) ─── */
+export interface ISSPosition {
+    latitude: number;
+    longitude: number;
+    altitudeKm: number;
+    velocityKmS: number;
+}
+
+export interface ISSUpcomingPass {
+    time: string;
+    durationSec: number;
+    maxElevation: number;
+    direction: string;
+    hoursFromNow: number;
 }
 
 export type ModuleKey = keyof ModuleState;

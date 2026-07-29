@@ -1,4 +1,5 @@
 import type { ForecastDay, LocationDetail } from '@/types';
+import { getLanguage } from './api';
 import { fetchWithRetry, safeNum, safeStr } from './fetchWithRetry';
 
 const FETCH_OPTS: RequestInit = { mode: 'cors', credentials: 'omit' };
@@ -183,101 +184,21 @@ async function fetchDetailedWeather(lat: number, lon: number): Promise<DetailedW
     };
 }
 
-export interface ISSUpcomingPass {
-    time: string;
-    durationSec: number;
-    maxElevation: number;
-    direction: string;
-    hoursFromNow: number;
-}
-
-const COMPASS_16 = [
+export const COMPASS_16 = [
     'K', 'KKD', 'KD', 'DKD', 'D', 'DGD', 'GD', 'GGD',
     'G', 'GGB', 'GB', 'BGB', 'B', 'BKB', 'KB', 'KKB',
 ];
-const COMPASS_8 = ['K', 'KD', 'D', 'GD', 'G', 'GB', 'B', 'KB'];
+export const COMPASS_8 = ['K', 'KD', 'D', 'GD', 'G', 'GB', 'B', 'KB'];
+const COMPASS_16_EN = [
+    'N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
+    'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW',
+];
+const COMPASS_8_EN = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
 
-function azimuthLabel(deg: number, use8: boolean): string {
-    const dirs = use8 ? COMPASS_8 : COMPASS_16;
+/** Azimut derecesini seçili dilin pusula yönü etiketine çevirir */
+export function azimuthLabel(deg: number, use8: boolean): string {
+    const en = getLanguage() === 'en';
+    const dirs = use8 ? (en ? COMPASS_8_EN : COMPASS_8) : (en ? COMPASS_16_EN : COMPASS_16);
     return dirs[Math.round(((deg % 360) + 360) % 360 / (360 / dirs.length)) % dirs.length];
 }
 
-/**
- * Predict ISS overpasses for a given observer lat/lon over the next ~6 hours.
- * Uses the prediction orbit ring + a simple visibility test:
- *   pass ≈ when the satellite track crosses the observer's
- *   horizon (|lat - subSatLat| < 60°).
- * Returns up to `maxPasses` future passes with a duration, peak elevation
- * and a cardinal direction label.
- */
-export function predictUpcomingPasses(
-    obsLat: number,
-    obsLon: number,
-    prediction: { lat: number; lon: number }[],
-    maxPasses = 3,
-    periodMin = 92.68,
-): ISSUpcomingPass[] {
-    if (prediction.length < 2) return [];
-
-    const passes: ISSUpcomingPass[] = [];
-    const stepMin = periodMin / prediction.length;
-    let inPass = false;
-    let passStartIdx = 0;
-
-    for (let i = 1; i < prediction.length; i++) {
-        const a = prediction[i - 1];
-        const b = prediction[i];
-        const dLat = Math.abs(((b.lat - obsLat + 540) % 360) - 180);
-        const dLon = Math.abs(((b.lon - obsLon + 540) % 360) - 180);
-        const dist = Math.sqrt(dLat * dLat + dLon * dLon);
-        const visible = dist < 60;
-
-        if (visible && !inPass) {
-            inPass = true;
-            passStartIdx = i;
-        } else if (!visible && inPass) {
-            const startMin = passStartIdx * stepMin;
-            const endMin = i * stepMin;
-            const dur = Math.max(60, (endMin - startMin) * 60);
-            const peakIdx = Math.round((passStartIdx + i) / 2);
-            const peak = prediction[Math.min(prediction.length - 1, peakIdx)];
-            const peakLat = peak?.lat ?? 0;
-            const peakLon = peak?.lon ?? 0;
-            const elev = Math.round(90 - Math.sqrt(
-                Math.pow(peakLat - obsLat, 2) + Math.pow(peakLon - obsLon, 2)
-            ));
-            const azDeg = (Math.atan2(peakLon - obsLon, peakLat - obsLat) * 180) / Math.PI;
-            passes.push({
-                time: new Date(Date.now() + startMin * 60_000).toLocaleTimeString('tr-TR', {
-                    hour: '2-digit', minute: '2-digit',
-                }),
-                durationSec: Math.round(dur),
-                maxElevation: Math.max(10, Math.min(90, elev)),
-                direction: `${azimuthLabel(azDeg - 180, true)} → ${azimuthLabel(azDeg, true)}`,
-                hoursFromNow: startMin / 60,
-            });
-            inPass = false;
-            if (passes.length >= maxPasses) break;
-        }
-    }
-
-    if (passes.length === 0) {
-        const minByIdx = prediction
-            .map((p, i) => ({ i, d: Math.sqrt(((p.lat - obsLat) ** 2) + (((p.lon - obsLon + 540) % 360) - 180) ** 2) }))
-            .sort((a, b) => a.d - b.d)[0];
-        if (minByIdx) {
-            const peak = prediction[minByIdx.i];
-            const azDeg = (Math.atan2(peak.lon - obsLon, peak.lat - obsLat) * 180) / Math.PI;
-            passes.push({
-                time: new Date(Date.now() + minByIdx.i * stepMin * 60_000).toLocaleTimeString('tr-TR', {
-                    hour: '2-digit', minute: '2-digit',
-                }),
-                durationSec: 0,
-                maxElevation: Math.max(10, 90 - Math.round(minByIdx.d)),
-                direction: `${azimuthLabel(azDeg - 180, true)} → ${azimuthLabel(azDeg, true)}`,
-                hoursFromNow: (minByIdx.i * stepMin) / 60,
-            });
-        }
-    }
-    return passes;
-}

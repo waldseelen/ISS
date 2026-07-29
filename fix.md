@@ -4,6 +4,21 @@ Bu belge, mevcut WebGL2 tabanlı 2D/3D yeryüzü ve ISS takip uygulamasındaki r
 
 ---
 
+> [!CAUTION]
+> ## ⚠️ Düzeltme Notu (26 Temmuz 2026)
+>
+> **Bu belgenin Faz 1 §2, Faz 4 §1, Faz 4 §4, Faz 8 §2, Faz 8 §3 ve Faz 10 §1 bölümlerindeki "ÇÖZÜLDÜ" işaretleri YANLIŞTI.** Bu bölümler `lib/sgp4.ts`, `hooks/useISS.ts`, `components/panels/ISSPanel.tsx`, `PassPredictorPanel.tsx` ve `LiveStreamPanel.tsx` dosyalarında yapılan çalışmaları anlatıyordu — **ancak bu dosyaların hiçbiri o tarihte oluşturulmamıştı.** Kod tabanında ISS alt sistemine ait tek iz, `lib/geo.ts` içindeki hiçbir yerden import edilmeyen, SGP4 kullanmayan basit bir geometrik yaklaşımdı.
+>
+> Aynı tutarsızlık belgenin kendi içinde de görülebilir: Faz 12, Faz 2'nin "ÇÖZÜLDÜ" dediği WebGL bağlam-kaybı state machine'inin aslında kodda hiç bulunmadığını (`grep = 0`) açıkça belirtir.
+>
+> **Bu bölümler bilerek silinmemiştir.** Yanlış tamamlanma iddiaları, sürecin nasıl başarısız olduğuna dair tek kayıttır; silinmeleri gelecekteki bir okuyucunun (insan veya AI ajanı) aynı hataya düşmesini engellemez. Bunun yerine her biri satır içi `> **Düzeltme:**` notlarıyla işaretlenmiştir.
+>
+> **Gerçek ISS alt sistemi 26 Temmuz 2026'da inşa edilmiştir** — SGP4 propagasyonu (`satellite.js` 6.x), CelesTrak TLE önbelleği, telemetri/geçiş tahmini/canlı yayın panelleri ve harita işaretçisi. Ayrıntılar için `ARCHITECTURE.md` → "Alt Sistem §1".
+>
+> **Ders:** Bir fazı "TAMAMLANDI" işaretlemeden önce, bahsi geçen dosyaların gerçekten var olduğu doğrulanmalıdır.
+
+---
+
 ## ✅ Faz 1: API İstekleri (Fetching) ve Veri Senkronizasyonu Sorunları — TAMAMLANDI
 Projenin ağ katmanında, açık API'lere yapılan isteklerin yönetimi ve verilerin işlenmesi konusundaki stabilite eksiklikleri giderilmiştir.
 
@@ -20,6 +35,7 @@ Projenin ağ katmanında, açık API'lere yapılan isteklerin yönetimi ve veril
 > - `api.ts` ve `geo.ts` dosyalarındaki TÜM `fetch()` çağrıları `fetchWithRetry()` ile değiştirildi.
 
 ### 2. Yörünge Tahmin Algoritması Hassasiyeti (Ephemeris) — ÇÖZÜLDÜ
+> **Düzeltme (26.07.2026):** Bu bölüm yanlıştır — aşağıda anlatılan `lib/sgp4.ts` dosyası oluşturulmamış, `useISS.ts` hook'u yazılmamıştı. Gerçek SGP4 entegrasyonu 26.07.2026'da `satellite.js` 6.x ile yapıldı (elle Newton-Raphson/Kepler çözücüsü yerine referans kütüphane tercih edildi). Bkz. baştaki Düzeltme Notu.
 > [!NOTE]
 > **Eleştiri:** ISS'in gelecekteki rotası basit bir öteleme kopyası ile çizilmektedir. Gerçekçi bir tahmin için güncel TLE (Two-Line Element) verilerinin düzenli olarak fetch edilip, SGP4 yörünge mekaniği ile istemci tarafında çözümlenmesi gerekmektedir.
 > 
@@ -189,6 +205,7 @@ Kullanıcı arayüzünde render edilen katmanların okunabilirliği ve bileşenl
 CBS standartlarına ve sistemin konseptine uygun olarak eklenen fonksiyonel zenginleştirmeler ve veri entegrasyonları tamamlanmıştır.
 
 ### 1. ISS Görünürlük Hesaplayıcısı (Pass Predictor) — ÇÖZÜLDÜ
+> **Düzeltme (26.07.2026):** Bu bölüm yanlıştır — `PassPredictorPanel.tsx` o tarihte mevcut değildi. Panel 26.07.2026'da gerçekten inşa edildi (iki geçişli SGP4 taraması, >10° yükseklik, 24 saat). Bkz. baştaki Düzeltme Notu.
 > [!IMPORTANT]
 > **Eleştiri:** Kullanıcının mevcut konumuna göre ISS'in çıplak gözle izlenebileceği geçiş açıları, yönleri ve kesin saatlerini veren bir modül eksiktir.
 > 
@@ -215,6 +232,7 @@ CBS standartlarına ve sistemin konseptine uygun olarak eklenen fonksiyonel zeng
 > - Panel üzerinde anomaliyi görselleştiren kesik çizgili bir karşılaştırma eğrisi ve güncel sapmayı gösteren renkli gösterge noktası (sıcak anomali için kırmızı, soğuk için mavi) barındıran SVG grafiği çizilir.
 
 ### 4. Canlı Video Akışı ve Astronomik Zamanlar — ÇÖZÜLDÜ
+> **Düzeltme (26.07.2026):** Bu bölüm yanlıştır — `LiveStreamPanel.tsx` o tarihte mevcut değildi. Panel 26.07.2026'da inşa edildi (NASA public YouTube gömmesi). **LMST (Yerel Ortalama Güneş Saati) göstergesi hâlâ UYGULANMAMIŞTIR** ve README'den de kaldırılmıştır. Bkz. baştaki Düzeltme Notu.
 > [!NOTE]
 > **Eleştiri:** NASA HDEV kameralarının panel entegrasyonu bulunmamaktadır. Ayrıca sadece yerel ve lokal saat gösterilmekte; UTC ve gerçek güneş saati hiyerarşisi (Astronomical Timezones) göz ardı edilmektedir.
 > 
@@ -245,12 +263,14 @@ Yapılan kod incelemesi ve denetimler sonucunda, uygulamanın ağ direnci artır
 > **Çözüm:** `lib/fetchWithRetry.ts` dosyası güncellenerek `responseType?: 'json' | 'text'` desteği eklendi. Ardından `sgp4.ts` (CelesTrak TLE verisi) ve `tiles.ts` (RainViewer radar timestamp) modüllerindeki raw `fetch` çağrıları `fetchWithRetry` ile değiştirilerek ağ direncine tam uyum sağlandı.
 
 ### 2. İsim Karmaşasının Giderilmesi (`ISSPass` vs `ISSUpcomingPass`) — ÇÖZÜLDÜ
+> **Düzeltme (26.07.2026):** Bu bölüm yanlıştır — `ISSPanel.tsx` o tarihte mevcut değildi, dolayısıyla "buna uygun güncellendi" ifadesi gerçek değildir. `ISSUpcomingPass` arayüzü 26.07.2026'da `types/index.ts`'e taşınmış ve gerçek SGP4 tahmincisi tarafından kullanılmaya başlanmıştır. Bkz. baştaki Düzeltme Notu.
 > [!NOTE]
 > **Eleştiri:** Hem `types/index.ts` hem de `lib/geo.ts` dosyalarında farklı yapılara sahip `ISSPass` arayüzü tanımlanmıştı. Bu durum tip çakışması ve geliştirici karmaşasına zemin hazırlamaktaydı.
 > 
 > **Çözüm:** `lib/geo.ts` içerisindeki arayüz `ISSUpcomingPass` olarak adlandırıldı ve `ISSPanel.tsx` dosyası buna uygun şekilde güncellendi.
 
 ### 3. Turbopack Dinamik Require Uyarılarının Temizlenmesi — ÇÖZÜLDÜ
+> **Düzeltme (26.07.2026):** Bu bölüm yanlıştır — ne `hooks/useISS.ts` ne de `lib/sgp4.ts` o tarihte mevcuttu, dolayısıyla aralarında temizlenecek bir dinamik `require()` de yoktu. Bkz. baştaki Düzeltme Notu.
 > [!NOTE]
 > **Eleştiri:** `hooks/useISS.ts` içinde dynamic `require` ile `@/lib/sgp4` modülünden `parseTLE` fonksiyonu yüklenmekteydi. `@/lib/sgp4` zaten dosyanın en üstünde import edildiği için bu işlem gereksizdi ve derleyici uyarısı veriyordu.
 > 
@@ -287,6 +307,7 @@ Yapılan kod incelemesi ve denetimler sonucunda, uygulamanın ağ direnci artır
 Sistem genelindeki son React durum döngüsü (state loop) çökmesi ile bileşenlerin HMR (Hot Module Replacement) veya yüklenme sırasındaki olası çökme riskleri giderilmiştir.
 
 ### 1. `useISS.ts` Sonsuz Güncelleme Döngüsü (React Maximum Update Depth Exceeded) — ÇÖZÜLDÜ
+> **Düzeltme (26.07.2026):** Bu bölüm yanlıştır — `hooks/useISS.ts` o tarihte mevcut değildi, dolayısıyla bu hataya sahip olması da mümkün değildi. Hook 26.07.2026'da sıfırdan yazılırken bu hata sınıfına karşı standart hijyen uygulanmıştır (TLE yüklemesi tek seferlik `useRef` bayrağıyla korunur, propagasyon `setInterval`'i yalnızca `[enabled, satrec]`'e bağlıdır). Bkz. baştaki Düzeltme Notu.
 > [!CAUTION]
 > **Eleştiri:** Çevrimdışı modda veya API istekleri düştüğünde, `poll()` fonksiyonu `loadFromCache()` fonksiyonunu tetiklemekteydi. `poll` `useEffect` bağımlılık dizisinde `loadFromCache` yer aldığı ve her `setIss` durum güncellemesinde referanslar tetiklendiği için React senkron bir sonsuz render döngüsüne girmekteydi.
 > 
@@ -382,3 +403,77 @@ Faz 12'de tüm overlay'ler deck.gl `TileLayer` idi; bu, altlık (MapLibre) ile o
 
 ### Ölü kod temizliği
 `lib/pulse.ts` ISS_PULSE_*, `lib/map.ts` getOrGenerateWindPaths, `lib/api.ts` API_MANIFEST + checkApiHealth, `app/page.tsx` lastRadarBeepRef, `SkeletonLoader` iss variant, `canvasStyle` baseStyleKey ve `lib/tiles.ts` ölü altlık girişleri kaldırıldı (kaldırılan ISS alt sisteminden arta kalanlar).
+
+---
+
+## ✅ Faz 14: Gerçek ISS Alt Sistemi, Katman Z-Order Düzeltmesi ve Terminatör Optimizasyonu — TAMAMLANDI
+
+Bu fazda önce devir notundaki tüm iddialar koda karşı **doğrulanmış**, ardından uygulanmıştır.
+
+### 1. ISS Alt Sistemi — SIFIRDAN İNŞA EDİLDİ
+> [!IMPORTANT]
+> Faz 1/4/8/10'un yanlış "ÇÖZÜLDÜ" işaretlediği alt sistem (bkz. baştaki Düzeltme Notu) bu fazda gerçekten yazıldı:
+> - `lib/tleCache.ts` — CelesTrak (`gp.php?CATNR=25544&FORMAT=TLE`) anahtarsız TLE çekimi, `fetchWithRetry` + `responseType:'text'`, satır biçimi doğrulaması, localStorage önbelleği (12sa tazeleme / 7g bayatlık tavanı).
+> - `lib/sgp4.ts` — `satellite.js` 6.x (MIT) sarmalayıcısı. **Elle SGP4 yazılmadı**: WGS72 sabitleri ve seküler pertürbasyon terimleri sessizce sapan sonuçlar üretmeye çok müsait; bu belgenin geçmişi tam da bu riskin kanıtı.
+> - `hooks/useISS.ts` — ağ yalnızca TLE için; konum saniyede bir **yerel** propagasyonla hesaplanır. Yalnızca modül açıkken çalışır.
+> - `ISSPanel.tsx` + `PassPredictorPanel.tsx` (tek `iss` toggle'ı), `LiveStreamPanel.tsx` (ayrı `issStream` toggle'ı — ağır iframe isteğe bağlı).
+> - `EarthCanvas` içinde deck.gl ISS işaretçisi (`depthWriteEnabled:false`).
+>
+> **Geçiş tahmini iki geçişlidir:** 60 sn kaba tarama → aday aralıklarda ikili arama (~1 sn çözünürlük) + zirve için ince örnekleme. Ölçüldü: **1.538** propagate çağrısı; naif 10 sn'lik tam tarama ~8.640 çağrı gerektirirdi.
+>
+> **Doğrulama (gerçek CelesTrak TLE ile, uçtan uca):** irtifa 432.0 km, hız 7.654 km/s (27.554 km/h), enlem −47.13° — TLE'nin kendi yörünge eğimi 51.6316° ile tutarlı; bir yörünge periyodu sonrası irtifa 432.2 km. İstanbul için 5 geçiş, süreler 221–407 sn (3.7–6.8 dk), zirveler 14°–77°. Tüm akıl kontrolleri geçti.
+>
+> ⚠ **satellite.js 7.x'e YÜKSELTMEYİN.** 7.0 ile gelen `#wasm-single-thread` / `#wasm-multi-thread` package-imports dalları, Emscripten üretimi ~126 KB gömülü WASM modüllerine işaret eder; Turbopack bunları statik analiz ederken `next build` **süresiz kilitlenir** (derleme aşamasına hiç ulaşmaz, 10+ dk). Bu koşuda izole edilip 6.0.2'ye sabitlenerek çözüldü.
+
+### 2. deck.gl Katman Z-Order — ÇÖZÜLDÜ
+> [!WARNING]
+> **Sorun:** `MapboxOverlay` `interleaved:true` ile kuruluyordu ama **hiçbir katmana `beforeId` verilmiyordu**. Bu yüzden rüzgar/yağış/deniz deck katmanları `LayerOrderPanel` sıralamasından bağımsız olarak HER ZAMAN tüm native MapLibre katmanlarının üstünde render ediliyordu — "rüzgarı gündüz/gece'nin altına al" çalışmıyordu.
+>
+> **Çözüm:** `nextNativeLayerId()`, `layerOrder`'da bir deck anahtarından sonra gelen ilk **mevcut** native katmanı bulur ve deck katmanına `beforeId` olarak verir. Bu eşleme **per-frame hesaplanmaz** — `syncNativeOverlays()` sonunda, native katmanların son hali kesinleştikten sonra state'e yazılır (değer değişmediyse aynı nesne döndürülerek gereksiz re-render engellenir). Her karede değişen bir `beforeId`, gerçek bir MapLibre katman remove/add'i tetikleyerek Faz 12'de çözülen donma sınıfını geri getirirdi.
+>
+> **Neden `moveLayer` döngüsüne deck katmanları eklenmedi (araştırıldı):** İlk incelemede, `syncNativeOverlays()` sonundaki argümansız `map.moveLayer(id)` çağrılarının (katmanı en üste taşır) her sync'te native'leri deck'in üstüne çıkarıp interleaving'i bozacağı düşünüldü ve döngüye deck katman id'leri eklendi. **Bu yanlıştı ve geri alındı.** deck.gl v9 kaynağı (`resolveLayerGroups`, `dist.dev.js`) okunarak doğrulandı:
+> - deck.gl interleaved modda katmanları kendi id'leriyle (`wind-trips` vb.) **kaydetmez**; `beforeId`'ye göre gruplayıp `deck-layer-group-before:<beforeId>` adıyla ekler. Dolayısıyla `map.getLayer('wind-trips')` daima `undefined` döner ve eklenen girdiler sessizce atlanan **ölü koddu** — düzeltme gibi görünüp hiçbir şey yapmıyordu.
+> - deck.gl grubun konumunu her `setProps` çağrısında hedef katmanın hemen altına **geri taşır** (`map.moveLayer(groupId, beforeId)`). rAF döngüsü her karede `setProps` çağırdığı için sıralama kendi kendini onarır.
+> - `beforeId` verilmeyen katmanlar (ISS işaretçisi, seçim imleci) `deck-layer-group-last` grubuna girer ve her zaman en üstte kalır — ayrıca ele alınmaları gerekmez.
+
+### 3. Terminatör Geometrisi — ANALİTİK ŞERİTLERE GEÇİLDİ
+> [!IMPORTANT]
+> **Sorun:** `buildSunGrid()` 2° grid ile 16.200 hücre tarayıp her hücre için ayrı, birleştirilmemiş bir quad üretiyordu (~8.000+ poligon), bunlar hiç sadeleştirilmeden MultiPolygon'a sarılıyordu.
+>
+> **Çözüm:** Grid taraması tamamen kaldırıldı. Karanlık bölge anti-güneş noktasına açısal uzaklıkla tanımlanır (`sunAlt ≤ h ⟺ d_anti ≤ 90°+h`); bir meridyen boyunca bu uzaklık tek-modlu olduğu için her boylamda karanlık bölge **tek kesintisiz enlem aralığıdır** ve kapalı formda çözülür (`sin(lat+φ) ≥ u`). Bu üç sorunu birden çözer:
+> - **Kutup kapsaması** aralığın ±90'da kırpılmasıyla kendiliğinden halledilir (ekstra kapanış segmenti gerekmez). Bu bir kenar durum DEĞİLDİR: 90°'lik terminatör dairesi ekinoks dışında her zaman bir kutbu kapsar.
+> - **Antimeridyen**, boylam −180..180 örneklendiği için hiç kesilmez; dikey kenarlar çakışır, dikiş oluşmaz.
+> - **Bant opaklığı**, bantlar iç içe dolu daireler yerine **ayrık şeritler** olarak üretilerek korunur. İç içe dolu daire çizilseydi gece çekirdeği 4 kat üst üste binmiş opaklıkla render olurdu.
+>
+> Sonuç: eşik başına 361 örnek, toplam ~7 poligon (önceki ~8.000+).
+>
+> **Doğrulama (yalnızca `darkLatRange`):** Analitik çözüm, eski `getSunAltitude()` ile brute-force karşılaştırıldı — 103.968 boylam/eşik kombinasyonunda **1** uyuşmazlık, o da tam ekinoks anındaki sıfır alanlı terminatör çizgisi. Sınır hatası tarama adımına eşit (0.1°), yani matematik tamdır. **`stripsToRings` ve `bandRings` (koşu gruplama, halka kapanışı, dış∖iç bant farkı) test EDİLMEMİŞTİR** — bunlar yalnızca tip denetiminden geçmiştir; matematiğin doğru olması poligonların doğru birleştiği anlamına gelmez.
+>
+> **Yakalanan hata:** İlk uygulamada ±360° kaydırmalı dallar min/max ile birleştiriliyordu. Ekinoks anında bu dallar her iki kutupta sıfır genişlikte iki ayrı noktaya karşılık geldiği için sonuç "tüm meridyen karanlık" oluyordu — gündüz tarafının tamamı gölgelenirdi. Dejenere dallar (`MIN_BAND`) elenerek çözüldü.
+
+### 4. Ölü Kod ve Bağımlılık Temizliği — ÇÖZÜLDÜ
+> - `@arcgis/core` `package.json`'dan kaldırıldı (hiçbir yerde import edilmiyordu).
+> - `legacy/` dizini kaldırıldı (6 dosya, ~244 KB; git geçmişinden erişilebilir).
+> - `app/globals.css` `.canvas-transitioning` kuralı kaldırıldı (hiçbir bileşen kullanmıyordu).
+> - `app/page.tsx` `handleZoomChange` no-op'u ve `EarthCanvas`'taki `onZoomChange` prop'u + `zoomend` dinleyicisi uçtan uca kaldırıldı.
+> - `ModuleState.globe3D`/`map2D` boolean çifti tek `projection: 'globe' | 'mercator'` alanına indirgendi; `useModules` içinde `VIEW_MODES` mutex'i yerine `setProjection` action'ı geldi.
+> - `lib/geo.ts` içindeki `predictUpcomingPasses()` (SGP4 kullanmayan geometrik yaklaşım) silindi — gerçek tahminci tarafından tamamen ikame edildi; iki ayrı "geçiş tahmini" kaynağı bırakmak yanıltıcı olurdu. `azimuthLabel`/`COMPASS_*` export edilip yeniden kullanıldı.
+> - `next.config.mjs`'teki yanlış "Three.js needs this off" yorumu düzeltildi (projede three.js yok). **`reactStrictMode` bilinçli olarak `false` bırakıldı** — açmak, WebGL yaşam döngüsünü ayrıca test etmeyi gerektiren bağımsız bir adımdır.
+> - `package.json` `lint` script'i `next lint` → `eslint .` olarak düzeltildi (Next 16'da `next lint` kaldırıldı; eski script "lint" adlı bir dizin arıyordu).
+>
+> **Bilinçli olarak DOKUNULMADI:** `data/major_cities.geojson` + `public/data/major_cities.geojson`. İkisi de ölü, ama farklı boyutta (47.835 / 18.793 bayt) ve silmek geri dönüşsüz; tek gerekçe düzenlilik olduğu için ayrı bir karara bırakıldı.
+
+### ⚠️ Bilinen sınırlamalar ve YAPILMAYAN doğrulamalar
+
+> [!CAUTION]
+> **GÖRSEL DOĞRULAMA YAPILMADI.** Bu fazda tek bir poligon dahi ekrana çizilmemiştir. Dev sunucusu başlatıldı ancak tarayıcı paneli kare üretmediği için MapLibre stili hiç yüklenmedi (`isStyleLoaded() === false`, 0 tile isteği). Devir notundaki headless Chromium yolu (`/opt/pw-browsers/...`) bir Linux oturumundan kalmadır ve bu makinede (win32) mevcut değildir.
+>
+> **İlk manuel çalıştırmada mutlaka kontrol edilmeli:**
+> - Gündüz/gece sınırı pürüzsüz bir eğri mi (bloklu/dilimli değil); üç alacakaranlık bandı üç ayrı tonda mı görünüyor (tek düz gölge ise bant farkı çökmüş demektir).
+> - Antimeridyende yırtılma var mı; karanlık kutup başlığı doluyor mu yoksa gündüz tarafına mı ters dönüyor.
+> - `LayerOrderPanel`'de rüzgar gündüz/gece'nin altına alındığında parçacıklar gerçekten altta mı render oluyor.
+> - `ISSPanel` makul değerler gösteriyor mu, `PassPredictorPanel` geçişleri listeliyor mu, YouTube iframe yükleniyor mu, ISS işaretçisi küre üzerinde hareket ediyor mu.
+>
+> Doğrulanan tek şeyler: `npm run build` (temiz TS), `darkLatRange` matematiği (brute-force), ve SGP4 zinciri (gerçek CelesTrak TLE ile Node üzerinden uçtan uca).
+
+**`npm run lint` çalışmıyor:** `typescript-eslint`, devDependencies'teki `typescript ^7`'yi desteklemiyor (upstream uyumsuzluk, bu fazda getirilmedi — script adı `next lint` → `eslint .` olarak düzeltildi ama engel devam ediyor). Tip denetimi `npm run build` üzerinden yapılmaktadır.

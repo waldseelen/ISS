@@ -33,40 +33,46 @@ ISS/
 │       ├── Toast.tsx                 # Bildirim ve Hata Toast Arayüzü
 │       └── Toolbar.tsx               # Modülleri, Altlık Haritaları ve Hava Katmanlarını Açıp Kapatan Ana HUD Araç Çubuğu
 ├── hooks/                            # Dinamik Yaşam Döngüsü ve State Hook'ları
-│   ├── useModules.ts                 # Modül Açma/Kapama, Görünüm Modu (globe3D/map2D) ve Karşılıklı Dışlayan Seçim Grupları (Mutex) ile Parçacık Ayarları
-│   └── useSun.ts                     # SunCalc Astronomik Hesaplamalar, Terminatör Sınırı ve Alacakaranlık Feathering Bandları
+│   ├── useISS.ts                     # TLE önbelleği + saniyelik yerel SGP4 propagasyonu ile ISS telemetrisi
+│   ├── useModules.ts                 # Modül Açma/Kapama, Projeksiyon Seçimi (globe/mercator) ve Karşılıklı Dışlayan Seçim Grupları (Mutex) ile Parçacık Ayarları
+│   └── useSun.ts                     # SunCalc Astronomik Hesaplamalar, analitik terminatör/alacakaranlık şeritleri
 ├── lib/                              # Çekirdek Kütüphaneler ve API Bağlantıları
 │   ├── api.ts                        # Open-Meteo, Marine ve Tarihsel İklim Arşivi API Entegrasyonları ve Dil Çeviri Tesisleri
 │   ├── audio.ts                      # Web Audio API Siber-Akustik Beep ve Telemetri Ses Sentezleyicisi
 │   ├── canvasStyle.ts                # Tek MapLibre GL motoru için taban stilleri (satellite/street/topo) ve küre (globe) / düz (mercator) projeksiyon yapısı
 │   ├── fetchWithRetry.ts             # Host Başına Eşzamanlı İstek Sınırlayıcı, Exponential Backoff, 429 Hata Yönetimi ve Tip Güvenliği Validatörleri (safeNum/safeStr)
-│   ├── geo.ts                        # Ters Coğrafi Kodlama (Reverse Geocoding), Konum Detayı ve basit geometrik geçiş tahmini yardımcısı (predictUpcomingPasses — şu an UI'a bağlı değil)
+│   ├── geo.ts                        # Ters Coğrafi Kodlama (Reverse Geocoding), Konum Detayı ve pusula yönü yardımcıları (azimuthLabel)
 │   ├── map.ts                        # Rüzgar Verisi için IDW (Inverse Distance Weighting) Enterpolasyonu ve GPU Trips Katmanı Yol Üreticisi
 │   ├── pulse.ts                      # Cursor/seçim için farklı frekanslı ışık darbesi (Pulse) hesaplayıcısı
+│   ├── sgp4.ts                       # satellite.js sarmalayıcısı: TLE ayrıştırma, propagasyon, iki geçişli geçiş tahmini
+│   ├── tleCache.ts                   # CelesTrak TLE çekimi (fetchWithRetry) + localStorage önbelleği (12sa tazeleme / 7g bayatlık)
 │   └── tiles.ts                      # NASA GIBS, RainViewer ve Uydu Altlık Haritaları URL Üreticileri
 ├── data/                             # Statik GeoJSON Verileri
 │   └── major_cities.geojson          # Büyük şehir noktaları (public/data/ altında da kopyası bulunur)
 ├── public/                           # Statik Dosyalar ve Servis İşçileri
 │   ├── sw.js                         # Stale-While-Revalidate Map Tiles ve Network-First API Çevrimdışı Önbellekleme Katmanı (v3)
 │   └── data/major_cities.geojson     # Servis edilen büyük şehir GeoJSON verisi
-├── legacy/                           # Eski/arşiv prototip kodları (aktif uygulamada kullanılmaz)
 └── types/                            # Global Veri Tipleri
     └── index.ts                      # Tüm Uygulamanın TypeScript Interface ve Tip Tanımlamaları
 ```
 
-> **Doğruluk Notu:** Bu dosya ağacı mevcut kaynak kodla eşleştirilmiştir. `README.md` ve aşağıdaki alt sistem açıklamalarında bahsi geçen bazı ISS özellikleri (SGP4 motoru, canlı ISS telemetrisi, NASA canlı yayını, adanmış ISS/PassPredictor panelleri) **şu anki kod tabanında bulunmamaktadır** — ilgili notlar için "Alt Sistem" bölümüne ve sonundaki "Bağımlılık ve Doğruluk Notu"na bakınız.
+> **Not:** `data/major_cities.geojson` ve `public/data/major_cities.geojson` şu an kod tarafından kullanılmamaktadır (şehir arama Open-Meteo Geocoding üzerinden çalışır); ileride çevrimdışı şehir listesi için değerlendirilmek üzere korunmaktadır.
 
 ---
 
 ## ⚙️ Çekirdek Alt Sistemlerin Çalışma Mantığı
 
-### 1. Geçiş Tahmini Yardımcısı (`lib/geo.ts`) — Basitleştirilmiş
-> **Kod Durumu:** Bu bölümün önceki sürümü, tam teşekküllü bir SGP4/TLE/Kepler yörünge motoru (`lib/sgp4.ts`), `useISS.ts` hook'u ve `PassPredictorPanel.tsx`/`ISSPanel.tsx` panelleri tanımlıyordu. **Bu dosyalar ve SGP4 motoru mevcut kod tabanında bulunmamaktadır.** Kodda yalnızca aşağıdaki basitleştirilmiş yardımcı yer alır.
+### 1. ISS Takibi ve Geçiş Tahmini (`lib/sgp4.ts`, `lib/tleCache.ts`, `hooks/useISS.ts`)
 
-`lib/geo.ts` içinde `predictUpcomingPasses()` fonksiyonu ve `ISSUpcomingPass` arayüzü tanımlıdır. Bu fonksiyon:
-* Gerçek yörünge mekaniği (SGP4/TLE/Kepler) **kullanmaz**; kendisine dışarıdan verilen bir `{lat, lon}[]` tahmini yörünge halkası üzerinde basit bir geometrik görünürlük testi (`|Δlat, Δlon| < 60°`) uygular.
-* Gözlemciye en yakın geçişleri yaklaşık zaman, süre, tepe yükseklik açısı (kaba geometrik yaklaşım) ve pusula yönü (`azimuthLabel`) ile döndürür.
-* **Şu anda `page.tsx` veya herhangi bir panel tarafından import edilmemektedir** — atıl (dormant) bir yardımcı olarak durmaktadır. Uygulama şu an canlı ISS konumu çekmez (`wheretheiss.at`/CelesTrak entegrasyonu kodda yoktur).
+Gerçek SGP4 yörünge mekaniğine dayanan ISS alt sistemi:
+
+* **TLE kaynağı (`lib/tleCache.ts`):** Yörünge elemanları CelesTrak'ın anahtarsız uç noktasından (`gp.php?CATNR=25544&FORMAT=TLE`) `fetchWithRetry` üzerinden `responseType: 'text'` ile çekilir. Yanıt satır biçimi doğrulanır (`isValidTLE`) — böylece hatalı/HTML bir yanıt önbelleğe girmez. `localStorage`'da saklanır: **12 saat** tazeleme aralığı, **7 gün** sert bayatlık tavanı.
+* **Propagatör (`lib/sgp4.ts`):** `satellite.js` 6.x (MIT) — referans Vallado/Hoots SGP4 portu, saf hesaplama. `parseTLE`, `propagateISS` ve `predictPasses` ince sarmalayıcılar olarak dışa açılır.
+  > ⚠ **Sürüm kilidi:** satellite.js **7.x'e yükseltilmemelidir**. 7.0 ile gelen `#wasm-*` package-imports dalları Emscripten üretimi gömülü WASM modüllerine işaret eder ve Turbopack bunları statik analiz ederken `next build` süresiz kilitlenir.
+* **Telemetri (`hooks/useISS.ts`):** Ağ **yalnızca** TLE tazelemek için kullanılır. Konum her saniye tamamen yerel propagasyonla hesaplanır — saniyelik ağ isteği yoktur. Hook yalnızca ilgili modül açıkken (`useISS(modules.iss)`) çalışır.
+* **Geçiş tahmini:** Gözlemci bakış açıları `eciToEcf` + `ecfToLookAngles` ile hesaplanır. **İki geçişli** tarama kullanılır: 60 sn'lik kaba tarama ile eşik geçişleri bulunur, ardından yalnızca aday aralıklarda ikili arama (~1 sn çözünürlük) ve zirve için ince örnekleme yapılır. Ölçülen maliyet ~1.540 propagate çağrısı; naif 10 sn'lik tam tarama ~8.640 çağrı gerektirirdi.
+* **Paneller:** `ISSPanel.tsx` (enlem/boylam/irtifa/hız + TLE tazelik göstergesi) ve `PassPredictorPanel.tsx` (24 saat, >10° yükseklik) tek `iss` toggle'ı altında birlikte açılır. `LiveStreamPanel.tsx` (NASA public YouTube gömmesi, anahtar gerektirmez) ayrı `issStream` toggle'ındadır — ağır iframe isteğe bağlı yüklenir.
+* **Harita işaretçisi:** `EarthCanvas.buildLayers()` içinde deck.gl `ScatterplotLayer` (`depthWriteEnabled: false`), imleç gibi her zaman en üstte — tek nokta olduğu için `layerOrder`'a dahil edilmez.
 
 ### 2. Topografik Yükseklik Profili (`lib/api.ts`, `components/panels/LocationDetailPanel.tsx`)
 Seçilen noktanın çevresindeki arazi yapısını analiz etmek için dinamik bir topografik kesit motoru mevcuttur:
@@ -98,10 +104,11 @@ WebGL bağlamının (context) kaybolması durumunda arayüzün kilitlenmesi veya
 
 ---
 
-## 🧾 Bağımlılık ve Doğruluk Notu
+## 🧾 Bağımlılık Notu
 
-* **`@arcgis/core` (kullanılmayan/legacy bağımlılık):** `package.json` içinde `@arcgis/core ^4.34.8` çok büyük bir bağımlılık olarak listelidir, ancak `src` içinde **hiçbir yerde import edilmemektedir** (kaldırılmaya aday). Koddaki tek "arcgis" referansı, uydu altlık haritası için kullanılan `server.arcgisonline.com` **raster tile URL'sidir** (`lib/canvasStyle.ts`, `public/sw.js`) — bu, `@arcgis/core` SDK'sıyla ilgili değildir. Benzer şekilde `README.md`'de anılan **Three.js** de `package.json`'da bir bağımlılık değildir.
-* **ISS/SGP4 alt sistemleri:** `README.md` ve bu belgenin önceki sürümü canlı ISS telemetrisi, NASA canlı yayını ve SGP4 tabanlı geçiş tahmini gibi özellikler tanımlar. Bu özelliklerin çoğu mevcut kod tabanında **uygulanmamıştır** (bkz. Alt Sistem §1). Mevcut uygulama bir hava durumu / CBS odaklı Dünya görselleştiricisidir.
+* **`@arcgis/core`:** Kullanılmayan bu bağımlılık `package.json`'dan **kaldırılmıştır**. Koddaki tek "arcgis" referansı, uydu altlık haritası için kullanılan `server.arcgisonline.com` **raster tile URL'sidir** (`lib/canvasStyle.ts`, `public/sw.js`) — bu, `@arcgis/core` SDK'sıyla ilgili değildir. **Three.js** de bir bağımlılık değildir (proje tek MapLibre + deck.gl motoru kullanır).
+* **`satellite.js` 6.x:** ISS yörünge propagasyonu için tek yeni çalışma zamanı bağımlılığıdır. MIT lisanslı, saf hesaplama — ağ çağrısı veya hesap gerektirmez, dolayısıyla projenin "anahtarsız veri" kuralını bozmaz. **7.x'e yükseltmeyin** (bkz. Alt Sistem §1).
+* **`legacy/` dizini:** Aktif uygulamada kullanılmadığı için **kaldırılmıştır** (git geçmişinden erişilebilir).
 
 ---
 
@@ -116,10 +123,13 @@ Projeye yeni özellikler eklemek isteyen AI ajanlarının aşağıdaki adımlar�
   * `components/panels/LocationDetailPanel.tsx` içerisinde bu uyarıları gösteren yanıp sönen bir acil durum HUD uyarısı tasarlanmalı.
   * `types/index.ts` dosyasına ilgili veri tipleri girilmeli.
 
-### Faz 6: Uydu Takibi ve Yörünge Çizimleri (Sıfırdan)
-* **Hedef:** ISS ve diğer uyduların (Hubble/HST, Starlink, Tiangong) anlık konumlarının takibi ve yörüngelerinin çözümlenmesi. **Not:** Mevcut kodda ISS/uydu takibi henüz yoktur (canlı konum çekimi, SGP4 motoru veya adanmış panel bulunmaz), bu faz büyük ölçüde sıfırdan inşa gerektirir.
+### Faz 6: Çoklu Uydu Takibi ve Yörünge Çizimleri
+> **Durum:** ISS takibi (SGP4 propagasyonu, TLE önbelleği, telemetri/geçiş/canlı yayın panelleri, harita işaretçisi) **tamamlanmıştır** — bkz. Alt Sistem §1. Bu faz artık yalnızca ISS **ötesine** genişlemeyi kapsar.
+* **Hedef:** Diğer uyduların (Hubble/HST, Starlink, Tiangong) aynı altyapıyla takibi ve yer izi (ground track) çizimi.
 * **Dosyalar:**
-  * Yeni bir `hooks/useSatellites.ts` hook'u oluşturulmalı; seçili uydu kimliğine (NORAD ID) göre CelesTrak'tan TLE verisi çekmeli veya `wheretheiss.at` gibi keyless bir kaynaktan anlık konum almalı. (`lib/geo.ts` içindeki atıl `predictUpcomingPasses` yardımcısı başlangıç noktası olarak kullanılabilir.)
+  * `lib/tleCache.ts` çoklu NORAD ID'yi destekleyecek şekilde genelleştirilmeli (şu an ISS için `CATNR=25544` sabittir); önbellek anahtarı uydu başına ayrılmalı.
+  * `hooks/useISS.ts` deseni `hooks/useSatellites.ts` olarak genelleştirilebilir; `lib/sgp4.ts` propagatörü uydudan bağımsızdır, olduğu gibi yeniden kullanılabilir.
+  * Yer izi çizimi için `EarthCanvas.buildLayers()` içine bir deck.gl `PathLayer` eklenmeli (yörünge periyodu boyunca örneklenmiş konumlar); antimeridyen geçişinde yolun bölünmesi gerektiğine dikkat edilmeli.
   * Yeni bir `components/panels/SatellitePanel.tsx` oluşturulmalı; uydular arası geçiş için bir açılır kutu (select box) ve telemetri göstergesi barındırmalı ve `app/page.tsx` içine eklenmeli.
   * `components/earth/EarthCanvas.tsx` içindeki mevcut Deck.gl `MapboxOverlay` katmanlarına, uydu konumlarını ve rotalarını farklı renklerde çizecek yeni `ScatterplotLayer`/`TripsLayer` katmanları eklenmeli.
 

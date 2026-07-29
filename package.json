@@ -6,33 +6,34 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "analyze": "cross-env ANALYZE=true next build"
   },
   "dependencies": {
-    "@arcgis/core": "^4.34.8",
+    "@tailwindcss/postcss": "^4.3.3",
     "@vercel/speed-insights": "^2.0.0",
     "clsx": "^2.1.1",
-    "deck.gl": "^9.3.2",
-    "maplibre-gl": "^5.24.0",
-    "next": "^16.1.6",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "suncalc": "^1.9.0",
-    "tailwind-merge": "^2.4.0"
+    "deck.gl": "^9.3.7",
+    "maplibre-gl": "^6.0.0",
+    "next": "^16.2.12",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "satellite.js": "^6.0.2",
+    "suncalc": "^2.0.1",
+    "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
-    "@next/bundle-analyzer": "^16.2.9",
-    "@types/node": "^20",
-    "@types/react": "^19.2.14",
+    "@next/bundle-analyzer": "^16.2.12",
+    "@types/node": "^26",
+    "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
-    "@types/suncalc": "^1.9.0",
-    "autoprefixer": "^10.0.1",
+    "@types/suncalc": "^1.9.2",
+    "autoprefixer": "^10.5.4",
     "cross-env": "^10.1.0",
-    "eslint": "^10.0.2",
-    "eslint-config-next": "^16.1.6",
+    "eslint": "^10.8.0",
+    "eslint-config-next": "^16.2.12",
     "postcss": "^8",
-    "tailwindcss": "^3.4.1",
-    "typescript": "^5"
+    "tailwindcss": "^4.3.3",
+    "typescript": "^7"
   }
 }

@@ -6,7 +6,6 @@ export default tseslint.config(
         ignores: [
             '.next/**',
             'node_modules/**',
-            'legacy/**',
             'next-env.d.ts',
             'tsconfig.tsbuildinfo',
         ],

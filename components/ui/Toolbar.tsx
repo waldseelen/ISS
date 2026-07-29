@@ -1,19 +1,22 @@
 'use client';
 
 import { getLanguage, setLanguage, t as translate } from '@/lib/api';
-import type { ModuleState } from '@/types';
+import type { MapProjection, ModuleState } from '@/types';
 
 interface Props {
     modules: ModuleState;
     onToggle: (key: keyof ModuleState) => void;
+    onSetProjection: (projection: MapProjection) => void;
 }
 
-const MODE_TOOLS: { key: keyof ModuleState; icon: string; label: string }[] = [
-    { key: 'globe3D', icon: '🌐', label: 'Küre Görünümü' },
-    { key: 'map2D', icon: '🗺️', label: 'Düz Harita' },
+const MODE_TOOLS: { value: MapProjection; icon: string; label: string }[] = [
+    { value: 'globe', icon: '🌐', label: 'Küre Görünümü' },
+    { value: 'mercator', icon: '🗺️', label: 'Düz Harita' },
 ];
 
 const LAYER_TOOLS: { key: keyof ModuleState; icon: string; label: string }[] = [
+    { key: 'iss', icon: '🛰️', label: 'ISS Takibi' },
+    { key: 'issStream', icon: '📡', label: 'ISS Canlı Yayın' },
     { key: 'weather', icon: '🌤️', label: 'Hava Durumu' },
     { key: 'wind', icon: '💨', label: 'Rüzgar' },
     { key: 'marine', icon: '🌊', label: 'Deniz' },
@@ -31,8 +34,10 @@ const LAYER_TOOLS: { key: keyof ModuleState; icon: string; label: string }[] = [
 
 const getLocalizedLabel = (key: string, defaultLabel: string) => {
     switch (key) {
-        case 'globe3D': return getLanguage() === 'tr' ? 'Küre Görünümü' : 'Globe View';
-        case 'map2D': return getLanguage() === 'tr' ? 'Düz Harita' : 'Flat Map';
+        case 'globe': return getLanguage() === 'tr' ? 'Küre Görünümü' : 'Globe View';
+        case 'mercator': return getLanguage() === 'tr' ? 'Düz Harita' : 'Flat Map';
+        case 'iss': return getLanguage() === 'tr' ? 'ISS Takibi' : 'ISS Tracking';
+        case 'issStream': return getLanguage() === 'tr' ? 'ISS Canlı Yayın' : 'ISS Live Stream';
         case 'weather': return getLanguage() === 'tr' ? 'Hava Durumu' : 'Weather';
         case 'wind': return getLanguage() === 'tr' ? 'Rüzgar' : 'Wind';
         case 'marine': return getLanguage() === 'tr' ? 'Deniz' : 'Marine';
@@ -61,7 +66,7 @@ const getGroupHint = (key: keyof ModuleState, modules: ModuleState): string | nu
     return null;
 };
 
-export default function Toolbar({ modules, onToggle }: Props) {
+export default function Toolbar({ modules, onToggle, onSetProjection }: Props) {
     const lang = getLanguage();
 
     return (
@@ -81,13 +86,13 @@ export default function Toolbar({ modules, onToggle }: Props) {
             {/* ── Mod seçimi: 3D / 2D ── */}
             <div className="flex flex-col gap-0.5 pb-1 mb-0.5 border-b border-cyan-900/40">
                 {MODE_TOOLS.map(t => {
-                    const active = Boolean(modules[t.key]);
-                    const localizedLabel = getLocalizedLabel(t.key, t.label);
+                    const active = modules.projection === t.value;
+                    const localizedLabel = getLocalizedLabel(t.value, t.label);
                     return (
                         <button
-                            key={t.key}
+                            key={t.value}
                             type="button"
-                            onClick={() => onToggle(t.key)}
+                            onClick={() => onSetProjection(t.value)}
                             aria-pressed={active}
                             aria-label={localizedLabel}
                             className={[

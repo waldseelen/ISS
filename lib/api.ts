@@ -58,7 +58,24 @@ export const TRANSLATIONS = {
         highQuality: 'Yüksek Kalite',
         performanceMode: 'Performans Modu',
         latitude: 'Enlem',
-        longitude: 'Boylam'
+        longitude: 'Boylam',
+        issTitle: 'ISS — Uluslararası Uzay İstasyonu',
+        issAltitude: 'İrtifa',
+        issSpeed: 'Hız',
+        issTleAge: 'Yörünge verisi',
+        issTleStale: 'Yörünge verisi eski — konum sapmış olabilir',
+        issLoading: 'Yörünge verisi yükleniyor...',
+        issNoData: 'Yörünge verisi alınamadı',
+        issPasses: 'Yaklaşan Geçişler',
+        issNoPasses: 'Önümüzdeki 24 saatte 10° üzeri geçiş yok',
+        issSelectLocation: 'Geçiş tahmini için haritadan konum seçin',
+        issMaxElevation: 'Zirve',
+        issDuration: 'Süre',
+        issDirection: 'Yön',
+        issStreamTitle: 'NASA ISS Canlı Yayın',
+        issStreamNote: 'Harici içerik — YouTube üzerinden yayınlanır',
+        hoursShort: 'sa',
+        minutesShort: 'dk'
     },
     en: {
         windDirs: ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'],
@@ -88,7 +105,24 @@ export const TRANSLATIONS = {
         highQuality: 'High Quality',
         performanceMode: 'Performance Mode',
         latitude: 'Latitude',
-        longitude: 'Longitude'
+        longitude: 'Longitude',
+        issTitle: 'ISS — International Space Station',
+        issAltitude: 'Altitude',
+        issSpeed: 'Speed',
+        issTleAge: 'Orbit data',
+        issTleStale: 'Orbit data is stale — position may have drifted',
+        issLoading: 'Loading orbit data...',
+        issNoData: 'Orbit data unavailable',
+        issPasses: 'Upcoming Passes',
+        issNoPasses: 'No passes above 10° in the next 24 hours',
+        issSelectLocation: 'Select a location on the map for pass prediction',
+        issMaxElevation: 'Peak',
+        issDuration: 'Duration',
+        issDirection: 'Direction',
+        issStreamTitle: 'NASA ISS Live Stream',
+        issStreamNote: 'External content — streamed via YouTube',
+        hoursShort: 'h',
+        minutesShort: 'min'
     }
 };
 
